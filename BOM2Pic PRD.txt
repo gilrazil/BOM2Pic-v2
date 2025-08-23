@@ -1,0 +1,129 @@
+📌 BOM2Pic – Excel Image Extractor - PRD
+
+One-liner: BOM2Pic is a simple web tool that extracts and organizes images from Excel files into clean, ready-to-use formats, built for parts catalog administrators, engineers, and manufacturers.
+
+⸻
+
+⏰ Perfect Timing
+	•	Digital transformation in manufacturing and spare parts management.
+	•	Growth of e-commerce for spare parts (requires organized images).
+	•	Excel remains the dominant tool for parts catalogs → pain is frequent and real.
+	•	AI + SaaS adoption lowers barrier to adopt web utilities.
+
+⸻
+
+⚡ Unfair Advantage
+	•	Hyper-focused on a very specific pain (extracting + organizing images from Excel).
+	•	Simplicity: no heavy software, just upload → process → download.
+	•	Targeting a niche (parts catalog admins) overlooked by big software vendors.
+	•	Low friction: browser-based, no IT installation.
+
+⸻
+
+🛡️ Problem & Pain
+	•	Type: Chronic (recurs in every catalog update).
+	•	Frequency: High (weekly/monthly updates).
+	•	Intensity: Operational & financial – manual work, hours wasted, error-prone.
+	•	Evidence: Forum discussions, LinkedIn posts, Reddit Excel help, niche communities for spare parts and manufacturing.
+
+⸻
+
+🎯 Target Audience
+	•	Roles: Parts catalog administrators, product managers, manufacturing engineers.
+	•	Industries: Automotive, heavy machinery, textile machinery, electronics distributors.
+	•	Demographics: SMBs + mid-sized enterprises, globally distributed teams.
+	•	Psychographics:
+	•	Motivated by efficiency and accuracy.
+	•	Fear: making errors in catalogs, being bypassed by sales or IT.
+	•	Desire: fast, reliable, professional tools that make them look competent.
+
+⸻
+
+📈 Market & Opportunity
+	•	TAM: ~$2–3B (digital spare parts & catalog management software).
+	•	Growth: E-commerce spare parts market growing 7–10% YoY.
+	•	Competition: Low direct competition (Excel tools, macros, generic converters).
+	•	Gap: No specialized, SaaS-based solution focused purely on image extraction from Excel.
+
+⸻
+
+🔎 Keyword Analysis (Validation Signal)
+	•	“extract images from Excel” (high search volume, consistent growth).
+	•	“Excel to image tool”, “Excel product images export”, “parts catalog Excel images”.
+	•	CPC: $1–3 range, low–medium competition.
+	•	Strong validation: hundreds of StackOverflow/Reddit threads.
+
+⸻
+
+💰 Revenue Potential & Business Model
+	•	Revenue streams:
+	•	Free tier (limit on # of images).
+	•	Monthly SaaS (unlimited).
+	•	Pay-as-you-go (per image credit pack).
+(On hold, for maybe later stages	•	Enterprise license (bulk + API).)
+	•	Willingness to pay: High – catalog admins get paid to fix this exact problem.
+	•	ARR projection: $200K–500K in 2–3 years (if scaled globally).
+
+⸻
+
+🛠️ Execution Feasibility
+	•	Time to MVP: Already live (weeks).
+	•	Team: 1–2 devs + marketing.
+	•	Complexity: Low (processing + UI).
+	•	Critical challenges: SEO visibility, trust/security concerns (uploading sensitive Excel files).
+
+⸻
+
+🚀 Go-to-Market Strategy
+	•	Channels: SEO, LinkedIn groups (manufacturing, catalog admins), Reddit (Excel, data prep), YouTube tutorials.
+	•	Tactics:
+	•	Publish guides: “How to extract images from Excel (fastest way)”.
+	•	Reddit/forum seeding.
+	•	Partnerships with catalog software vendors.
+	•	Messaging Angles:
+	•	“Stop wasting hours copying images from Excel.”
+	•	“From Excel to images in 60 seconds.”
+	•	“Perfect for parts catalog admins.”
+
+⸻
+
+📊 Proof & Validation
+	•	Already tested with real Excel files.
+	•	Strong demand signals from forums + customer feedback (your beta testers).
+	•	Pilot possible with free 20 images tool.
+	•	High frustration documented in Excel communities.
+
+⸻
+
+📉 Risks & Challenges
+	•	Technical: Large files, corrupted Excel formats.
+	•	Business: Users may expect free → monetization friction.
+	•	Regulatory: Handling sensitive Excel files (must clarify no data retention).
+	•	Commodity risk: Competitors can copy → moat must be brand + trust.
+
+⸻
+
+🪜 Value Ladder
+	•	Lead Magnet: Free trial (20 images).
+	•	Frontend Offer: $5 pay-per-file.
+	•	Core Offer: $10/month unlimited.
+(On hold:	•	Continuity: Pro plan with history + cloud storage.)
+(On hold:	•	Backend: Enterprise licensing / API integration.)
+
+⸻
+
+🎯 Success Metrics
+	•	CAC target: <$20.
+	•	Max churn: <7% monthly.
+	•	Conversion free → paid: >8%.
+	•	Product KPI: Time saved per catalog (e.g., 3 hours → 5 minutes).
+
+⸻
+
+📊 Framework Summaries
+	•	Value Equation: High pain, high demand, low effort solution → excellent ROI.
+	•	Market Matrix: Medium uniqueness, high value.
+	•	ACP:
+	•	Audience: Parts catalog admins.
+	•	Community: Excel + manufacturing forums.
+	•	Product: SaaS image extractor.

@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOM2Pic - Excel Image Extractor | 30 Days Free Trial</title>
+    <meta name="description" content="Extract images from Excel files instantly. 30-day free trial, then $10/month or $5/file. Perfect for parts catalogs and BOM management.">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="/static/styles.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="bg-primary text-white py-3">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="h3 mb-0">🚀 BOM2Pic</h1>
+                    <p class="mb-0 small">Excel Image Extractor</p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <!-- User info (hidden by default) -->
+                    <div id="userInfo" class="d-none">
+                        <small id="userStatus" class="text-white"></small>
+                        <button id="signOutBtn" class="btn btn-sm btn-outline-light ms-2">Sign Out</button>
+                    </div>
+                    <!-- Pricing info (shown by default) -->
+                    <div id="pricingInfo">
+                        <small class="text-white-50">
+                            <strong>30 days free</strong><br>
+                            Then $10/month or $5/file
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="container py-4">
+        <!-- Alert Container -->
+        <div id="alertContainer"></div>
+
+        <!-- Sign Up Section (shown when not authenticated) -->
+        <div id="signupSection" class="row justify-content-center mb-5">
+            <div class="col-lg-8">
+                <div class="card shadow-sm">
+                    <div class="card-body text-center p-5">
+                        <h2 class="display-6 mb-3">🎯 Start Your 30-Day Free Trial</h2>
+                        <p class="lead text-muted mb-4">Extract unlimited images from Excel files. Perfect for parts catalogs, BOMs, and product listings.</p>
+                        
+                        <!-- Simple Email Signup Form -->
+                        <form id="signupForm" class="row g-3 justify-content-center">
+                            <div class="col-md-6">
+                                <input type="email" class="form-control form-control-lg" id="signupEmail" 
+                                       placeholder="Enter your email address" required>
+                            </div>
+                            <div class="col-md-4">
+                                <button type="submit" class="btn btn-primary btn-lg w-100" id="signupBtn">
+                                    Start Free Trial
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                ✅ No password required • ✅ Instant access • ✅ Cancel anytime
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Processing Section (hidden until authenticated) -->
+        <div id="processingSection" class="d-none">
+            <form id="processingForm" class="row g-4">
+                <!-- File Upload -->
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="badge bg-primary me-2">1</span>
+                            <strong>Upload Excel Files (.xlsx)</strong>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <input type="file" class="form-control" id="fileInput" multiple accept=".xlsx" required>
+                                    <div class="form-text">Select one or more .xlsx files containing images</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-outline-secondary w-100" id="folderBtn">
+                                        📁 Choose Folder
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Column Selection -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="badge bg-primary me-2">2</span>
+                            <strong>Column with Images</strong>
+                        </div>
+                        <div class="card-body">
+                            <select class="form-select" id="imageColumn" required>
+                                <option value="">Select column...</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="badge bg-primary me-2">2</span>
+                            <strong>Column with Names/IDs</strong>
+                        </div>
+                        <div class="card-body">
+                            <select class="form-select" id="nameColumn" required>
+                                <option value="">Select column...</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Process Button -->
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="badge bg-success me-2">3</span>
+                            <strong>Extract Images</strong>
+                        </div>
+                        <div class="card-body text-center">
+                            <button type="submit" class="btn btn-success btn-lg px-5" id="processBtn" disabled>
+                                🚀 Process Files
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Features Section -->
+        <div class="row mt-5 text-center">
+            <div class="col-12">
+                <h3 class="mb-4">Why Choose BOM2Pic?</h3>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card border-0">
+                    <div class="card-body">
+                        <div class="display-1 mb-3">⚡</div>
+                        <h5>Lightning Fast</h5>
+                        <p class="text-muted">Extract hundreds of images in seconds</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card border-0">
+                    <div class="card-body">
+                        <div class="display-1 mb-3">🎯</div>
+                        <h5>Perfect for Catalogs</h5>
+                        <p class="text-muted">Designed for parts catalogs and BOMs</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card border-0">
+                    <div class="card-body">
+                        <div class="display-1 mb-3">🔒</div>
+                        <h5>Secure & Private</h5>
+                        <p class="text-muted">Files processed securely, nothing stored</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-light py-4 mt-5">
+        <div class="container text-center">
+            <p class="mb-0 text-muted">
+                <small>Images are kept in their original formats. Download includes organized folders and processing report.</small>
+            </p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Simple authentication state
+        let currentUser = localStorage.getItem('bom2pic_user');
+        let authToken = localStorage.getItem('bom2pic_token');
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', function() {
+            if (currentUser && authToken) {
+                showProcessingInterface();
+            } else {
+                showSignupInterface();
+            }
+
+            // Setup event listeners
+            document.getElementById('signupForm').addEventListener('submit', handleSignup);
+            document.getElementById('signOutBtn').addEventListener('click', handleSignOut);
+            document.getElementById('processingForm').addEventListener('submit', handleProcessing);
+            
+            // File input handlers
+            const fileInput = document.getElementById('fileInput');
+            const imageColumn = document.getElementById('imageColumn');
+            const nameColumn = document.getElementById('nameColumn');
+            
+            fileInput.addEventListener('change', updateProcessButton);
+            imageColumn.addEventListener('change', updateProcessButton);
+            nameColumn.addEventListener('change', updateProcessButton);
+        });
+
+        function showSignupInterface() {
+            document.getElementById('signupSection').classList.remove('d-none');
+            document.getElementById('processingSection').classList.add('d-none');
+            document.getElementById('userInfo').classList.add('d-none');
+            document.getElementById('pricingInfo').classList.remove('d-none');
+        }
+
+        function showProcessingInterface() {
+            document.getElementById('signupSection').classList.add('d-none');
+            document.getElementById('processingSection').classList.remove('d-none');
+            document.getElementById('userInfo').classList.remove('d-none');
+            document.getElementById('pricingInfo').classList.add('d-none');
+            
+            // Update user status
+            const user = JSON.parse(currentUser || '{}');
+            document.getElementById('userStatus').textContent = `${user.email || 'User'} - Free Trial`;
+            
+            // Populate columns and setup form
+            populateColumns();
+            updateProcessButton();
+        }
+
+        async function handleSignup(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('signupEmail').value.trim();
+            const signupBtn = document.getElementById('signupBtn');
+            
+            if (!email) {
+                showAlert('danger', 'Please enter your email address.');
+                return;
+            }
+            
+            try {
+                signupBtn.disabled = true;
+                signupBtn.textContent = 'Creating Account...';
+                
+                const formData = new FormData();
+                formData.append('email', email);
+                
+                const response = await fetch('/api/auth/signup', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Store user info
+                    localStorage.setItem('bom2pic_user', JSON.stringify(result.user));
+                    localStorage.setItem('bom2pic_token', 'simple_token_' + Date.now());
+                    
+                    currentUser = JSON.stringify(result.user);
+                    authToken = localStorage.getItem('bom2pic_token');
+                    
+                    showAlert('success', '🎉 ' + result.message);
+                    setTimeout(() => {
+                        showProcessingInterface();
+                    }, 1500);
+                } else {
+                    showAlert('danger', result.detail || 'Signup failed');
+                }
+                
+            } catch (error) {
+                console.error('Signup error:', error);
+                showAlert('danger', 'Network error. Please try again.');
+            } finally {
+                signupBtn.disabled = false;
+                signupBtn.textContent = 'Start Free Trial';
+            }
+        }
+
+        function handleSignOut() {
+            localStorage.removeItem('bom2pic_user');
+            localStorage.removeItem('bom2pic_token');
+            currentUser = null;
+            authToken = null;
+            showSignupInterface();
+            showAlert('info', 'You have been signed out.');
+        }
+
+        async function handleProcessing(e) {
+            e.preventDefault();
+            
+            const files = document.getElementById('fileInput').files;
+            const imageColumn = document.getElementById('imageColumn').value;
+            const nameColumn = document.getElementById('nameColumn').value;
+            const processBtn = document.getElementById('processBtn');
+            
+            if (!files.length || !imageColumn || !nameColumn) {
+                showAlert('danger', 'Please select files and both columns.');
+                return;
+            }
+            
+            if (imageColumn === nameColumn) {
+                showAlert('danger', 'Image and name columns must be different.');
+                return;
+            }
+            
+            try {
+                processBtn.disabled = true;
+                processBtn.textContent = 'Processing...';
+                showAlert('info', '⏳ Processing files... This may take a moment.');
+                
+                const formData = new FormData();
+                for (let file of files) {
+                    formData.append('files', file);
+                }
+                formData.append('imageColumn', imageColumn);
+                formData.append('nameColumn', nameColumn);
+                
+                // Add user email for simple auth
+                const user = JSON.parse(currentUser || '{}');
+                formData.append('user_email', user.email || 'test@example.com');
+                
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    if (response.status === 402) {
+                        showAlert('warning', '⏰ ' + errorData.message);
+                        return;
+                    }
+                    throw new Error(errorData.message || 'Processing failed');
+                }
+                
+                // Download file
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `bom2pic_images_${new Date().getTime()}.zip`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+                
+                // Show success
+                const processed = response.headers.get('X-B2P-Processed') || '0';
+                const saved = response.headers.get('X-B2P-Saved') || '0';
+                const duplicates = response.headers.get('X-B2P-Duplicate') || '0';
+                showAlert('success', `✅ Successfully processed ${processed} images (${saved} saved, ${duplicates} duplicates)!`);
+                
+            } catch (error) {
+                console.error('Processing error:', error);
+                showAlert('danger', `Processing failed: ${error.message}`);
+            } finally {
+                processBtn.disabled = false;
+                processBtn.textContent = '🚀 Process Files';
+            }
+        }
+
+        function populateColumns() {
+            const columns = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+            const defaultOption = '<option value="">Select column...</option>';
+            
+            document.getElementById('imageColumn').innerHTML = defaultOption + columns.map(col => 
+                `<option value="${col}">${col}</option>`
+            ).join('');
+            
+            document.getElementById('nameColumn').innerHTML = defaultOption + columns.map(col => 
+                `<option value="${col}">${col}</option>`
+            ).join('');
+        }
+
+        function updateProcessButton() {
+            const fileInput = document.getElementById('fileInput');
+            const imageColumn = document.getElementById('imageColumn');
+            const nameColumn = document.getElementById('nameColumn');
+            const processBtn = document.getElementById('processBtn');
+            
+            const hasFiles = fileInput.files.length > 0;
+            const hasColumns = imageColumn.value && nameColumn.value;
+            processBtn.disabled = !(hasFiles && hasColumns && currentUser);
+        }
+
+        function showAlert(type, message) {
+            const alertHtml = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            document.getElementById('alertContainer').innerHTML = alertHtml;
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    const alert = document.querySelector('.alert');
+                    if (alert) alert.remove();
+                }, 5000);
+            }
+        }
+    </script>
+</body>
+</html>

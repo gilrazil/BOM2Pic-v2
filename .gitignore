@@ -1,0 +1,41 @@
+# Environment variables (IMPORTANT - keeps API keys safe)
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
+
+# Virtual environment
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# BOM2Pic v2 specific files
+users.json          # User data (contains emails - privacy)
+*.zip               # Generated image archives
+test_files/         # User test files
+bom2pic_images_*.zip # Generated downloads
+
+# Backup files
+*_backup.py
+*_old.py
+app/main_backup.py
+app/auth_old.py
+
+# Development files
+.env.backup
+.env.txt
+users.json
