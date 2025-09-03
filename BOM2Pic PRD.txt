@@ -57,7 +57,7 @@ One-liner: BOM2Pic is a simple web tool that extracts and organizes images from 
 
 💰 Revenue Potential & Business Model
 	•	Revenue streams:
-	•	Free tier (limit on # of images).
+	•	Free tier (period limitation).
 	•	Monthly SaaS (unlimited).
 	•	Pay-as-you-go (per image credit pack).
 (On hold, for maybe later stages	•	Enterprise license (bulk + API).)
@@ -104,7 +104,7 @@ One-liner: BOM2Pic is a simple web tool that extracts and organizes images from 
 ⸻
 
 🪜 Value Ladder
-	•	Lead Magnet: Free trial (20 images).
+	•	Lead Magnet: Free trial (30 days from email subscription).
 	•	Frontend Offer: $5 pay-per-file.
 	•	Core Offer: $10/month unlimited.
 (On hold:	•	Continuity: Pro plan with history + cloud storage.)

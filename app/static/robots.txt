@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: https://bom2pic.com/sitemap.xml
+
+# Disallow admin areas
+Disallow: /admin
+Disallow: /api/

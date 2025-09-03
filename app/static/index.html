@@ -3,40 +3,206 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BOM2Pic - Excel Image Extractor | 30 Days Free Trial</title>
-    <meta name="description" content="Extract images from Excel files instantly. 30-day free trial, then $10/month or $5/file. Perfect for parts catalogs and BOM management.">
+    
+    <!-- SEO Optimized Title & Meta -->
+    <title>BOM2Pic - Convert Excel to Images | Free 30-Day Trial</title>
+    <meta name="description" content="BOM2Pic - הכלי הפשוט שממיר רשימות אקסל וגוגל שיטס לקבצי תמונה מוכנים. חינם ל־30 יום. Perfect for parts catalogs and product listings.">
+    
+    <!-- Keywords for SEO -->
+    <meta name="keywords" content="Excel to Image, Google Sheets to PNG, Export product list images, Catalog automation tool, BOM to images, Excel image extractor">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:title" content="BOM2Pic - Convert Excel Files to Images Instantly">
+    <meta property="og:description" content="Transform your Excel spreadsheets into organized image catalogs. 30-day free trial.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://bom2pic.com">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="BOM2Pic - Excel to Images Tool">
+    <meta name="twitter:description" content="Convert Excel files to organized image catalogs instantly. Free 30-day trial.">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Custom CSS -->
     <link href="/static/styles.css" rel="stylesheet">
+    
+    <!-- Structured Data for SEO -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "BOM2Pic",
+        "description": "Convert Excel files to organized image catalogs",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web Browser",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD",
+            "priceValidUntil": "2024-12-31",
+            "description": "30-day free trial"
+        }
+    }
+    </script>
 </head>
 <body>
-    <!-- Header -->
-    <header class="bg-primary text-white py-3">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
         <div class="container">
-            <div class="row align-items-center">
-                <div class="col-md-8">
-                    <h1 class="h3 mb-0">🚀 BOM2Pic</h1>
-                    <p class="mb-0 small">Excel Image Extractor</p>
+            <a class="navbar-brand fw-bold fs-3" href="/">
+                <span class="text-primary">🚀 BOM2Pic</span>
+            </a>
+            
+            <div class="d-flex align-items-center">
+                <!-- User info (hidden by default) -->
+                <div id="userInfo" class="d-none me-3">
+                    <small id="userStatus" class="text-muted"></small>
+                    <button id="signOutBtn" class="btn btn-sm btn-outline-secondary ms-2">Sign Out</button>
                 </div>
-                <div class="col-md-4 text-end">
-                    <!-- User info (hidden by default) -->
-                    <div id="userInfo" class="d-none">
-                        <small id="userStatus" class="text-white"></small>
-                        <button id="signOutBtn" class="btn btn-sm btn-outline-light ms-2">Sign Out</button>
+                <!-- Pricing info (shown by default) -->
+                <div id="pricingInfo">
+                    <small class="text-muted">
+                        <strong class="text-success">30 days free</strong><br>
+                        <span class="small">Then $10/month or $5/file</span>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-section py-5">
+        <div class="container">
+            <div class="row justify-content-center text-center">
+                <div class="col-lg-10">
+                    <h1 class="hero-title mb-4">
+                        Extract Images from <span class="text-primary">Excel</span><br>
+                        <span class="text-success">Files</span> in Seconds
+                    </h1>
+                    <p class="hero-subtitle mb-5">
+                        Stop wasting hours manually copying images from spreadsheets.<br>
+                        BOM2Pic extracts and organizes all your product images instantly.
+                    </p>
+                    
+                    <!-- Process Flow -->
+                    <div class="process-flow mb-5">
+                        <div class="d-flex align-items-center justify-content-center flex-wrap">
+                            <div class="process-step">
+                                <div class="process-icon">📄</div>
+                                <span>Upload Excel</span>
+                            </div>
+                            <div class="process-arrow">→</div>
+                            <div class="process-step">
+                                <div class="process-icon">🎯</div>
+                                <span>Auto Extract</span>
+                            </div>
+                            <div class="process-arrow">→</div>
+                            <div class="process-step">
+                                <div class="process-icon">📦</div>
+                                <span>Download Organized</span>
+                            </div>
+                        </div>
                     </div>
-                    <!-- Pricing info (shown by default) -->
-                    <div id="pricingInfo">
-                        <small class="text-white-50">
-                            <strong>30 days free</strong><br>
-                            Then $10/month or $5/file
-                        </small>
+                    
+                    <!-- CTA Buttons -->
+                    <div class="hero-cta mb-4">
+                        <button class="btn btn-primary btn-lg me-3" onclick="scrollToSignup()">
+                            Start Free Trial
+                        </button>
+                        <button class="btn btn-outline-secondary btn-lg" disabled style="opacity: 0.5;">
+                            Watch Demo
+                        </button>
+                    </div>
+                    
+                    <!-- Trust indicators -->
+                    <div class="trust-indicators">
+                        <span class="trust-item">• No data stored</span>
+                        <span class="trust-item">• Enterprise secure</span>
+                        <span class="trust-item">• Free for 30 days</span>
                     </div>
                 </div>
             </div>
         </div>
-    </header>
+    </section>
+
+    <!-- Upload Interface Section -->
+    <section class="upload-section py-5 bg-light" id="uploadSection" style="display: none;">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="text-center mb-4">
+                        <h2 class="section-title mb-3">Upload Your Excel File</h2>
+                        <p class="text-muted">Drag and drop your Excel file or click to browse. We support .xlsx and .xls formats.</p>
+                    </div>
+                    
+                    <div class="upload-container">
+                        <div class="upload-area" id="uploadArea">
+                            <div class="upload-icon mb-3">📤</div>
+                            <h4 class="upload-title">Choose your Excel file</h4>
+                            <p class="upload-subtitle">Drag and drop your file here, or click to browse</p>
+                            <p class="upload-formats">Supported formats: .xlsx, .xls (up to 50MB)</p>
+                            <button class="btn btn-outline-primary mt-3" id="browseBtn">Browse Files</button>
+                            <input type="file" id="fileInputHidden" accept=".xlsx,.xls" style="display: none;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="py-5">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="section-title mb-3">How It Works</h2>
+            </div>
+            
+            <div class="row justify-content-center">
+                <div class="col-lg-10">
+                    <div class="row g-4 text-center">
+                        <div class="col-md-4">
+                            <div class="how-step">
+                                <div class="step-circle mb-3">1</div>
+                                <h4 class="step-title">Upload Excel File</h4>
+                                <p class="step-description">
+                                    Drag and drop your Excel file or browse to select it. 
+                                    We support all Excel formats.
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="how-step">
+                                <div class="step-circle step-circle-green mb-3">2</div>
+                                <h4 class="step-title">Python Processing</h4>
+                                <p class="step-description">
+                                    Our Python-based algorithms automatically detect and extract 
+                                    all images from your spreadsheet.
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="how-step">
+                                <div class="step-circle step-circle-success mb-3">3</div>
+                                <h4 class="step-title">Download Results</h4>
+                                <p class="step-description">
+                                    Get your organized images in a clean ZIP file, 
+                                    ready to use in your catalog system.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <!-- Main Content -->
     <div class="container py-4">
@@ -46,10 +212,10 @@
         <!-- Sign Up Section (shown when not authenticated) -->
         <div id="signupSection" class="row justify-content-center mb-5">
             <div class="col-lg-8">
-                <div class="card shadow-sm">
+                <div class="card shadow border-0">
                     <div class="card-body text-center p-5">
-                        <h2 class="display-6 mb-3">🎯 Start Your 30-Day Free Trial</h2>
-                        <p class="lead text-muted mb-4">Extract unlimited images from Excel files. Perfect for parts catalogs, BOMs, and product listings.</p>
+                        <h2 class="h1 fw-bold mb-3">Start Your Free Trial</h2>
+                        <p class="lead text-muted mb-4">Join hundreds of professionals who save hours every week with BOM2Pic</p>
                         
                         <!-- Simple Email Signup Form -->
                         <form id="signupForm" class="row g-3 justify-content-center">
@@ -58,13 +224,13 @@
                                        placeholder="Enter your email address" required>
                             </div>
                             <div class="col-md-4">
-                                <button type="submit" class="btn btn-primary btn-lg w-100" id="signupBtn">
+                                <button type="submit" class="btn btn-primary btn-lg w-100 fw-semibold" id="signupBtn">
                                     Start Free Trial
                                 </button>
                             </div>
                         </form>
                         
-                        <div class="mt-3">
+                        <div class="mt-4">
                             <small class="text-muted">
                                 ✅ No password required • ✅ Instant access • ✅ Cancel anytime
                             </small>
@@ -147,46 +313,205 @@
         </div>
 
         <!-- Features Section -->
-        <div class="row mt-5 text-center">
-            <div class="col-12">
-                <h3 class="mb-4">Why Choose BOM2Pic?</h3>
-            </div>
-            <div class="col-md-4 mb-3">
-                <div class="card border-0">
-                    <div class="card-body">
-                        <div class="display-1 mb-3">⚡</div>
-                        <h5>Lightning Fast</h5>
-                        <p class="text-muted">Extract hundreds of images in seconds</p>
+        <section class="features-section py-5 bg-light">
+            <div class="container">
+                <div class="text-center mb-5">
+                    <h2 class="section-title mb-3">Powerful Features for Professional Results</h2>
+                    <p class="text-muted">BOM2Pic isn't just another file converter. It's a professional-grade tool designed specifically for parts catalog administrators and manufacturing teams.</p>
+                </div>
+                
+                <div class="row g-4">
+                    <div class="col-md-4 col-sm-6">
+                        <div class="feature-item text-center">
+                            <div class="feature-icon mb-3">⚡</div>
+                            <h4 class="feature-title">Lightning Fast Processing</h4>
+                            <p class="feature-description">Extract hundreds of images from complex Excel files in under 60 seconds</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4 col-sm-6">
+                        <div class="feature-item text-center">
+                            <div class="feature-icon mb-3">🛡️</div>
+                            <h4 class="feature-title">Enterprise Security</h4>
+                            <p class="feature-description">Your files are processed securely with end-to-end encryption and zero data retention</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4 col-sm-6">
+                        <div class="feature-item text-center">
+                            <div class="feature-icon mb-3">📁</div>
+                            <h4 class="feature-title">Smart Organization</h4>
+                            <p class="feature-description">Images are automatically organized with proper naming and folder structure</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4 col-sm-6">
+                        <div class="feature-item text-center">
+                            <div class="feature-icon mb-3">📥</div>
+                            <h4 class="feature-title">Clean ZIP Downloads</h4>
+                            <p class="feature-description">Get all extracted images in a well-organized ZIP file with proper naming conventions</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4 col-sm-6">
+                        <div class="feature-item text-center">
+                            <div class="feature-icon mb-3">⏱️</div>
+                            <h4 class="feature-title">Batch Processing</h4>
+                            <p class="feature-description">Process multiple Excel files simultaneously to save even more time</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4 col-sm-6">
+                        <div class="feature-item text-center">
+                            <div class="feature-icon mb-3">👥</div>
+                            <h4 class="feature-title">Built for Teams</h4>
+                            <p class="feature-description">Perfect for catalog administrators, engineers, and manufacturing teams</p>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card border-0">
-                    <div class="card-body">
-                        <div class="display-1 mb-3">🎯</div>
-                        <h5>Perfect for Catalogs</h5>
-                        <p class="text-muted">Designed for parts catalogs and BOMs</p>
+        </section>
+
+        <!-- Why Choose Section -->
+        <section class="why-choose-section py-5">
+            <div class="container">
+                <div class="text-center mb-5">
+                    <h2 class="section-title mb-3">Why Choose BOM2Pic?</h2>
+                </div>
+                
+                <div class="row g-4 justify-content-center">
+                    <div class="col-md-4 text-center">
+                        <div class="why-choose-item">
+                            <div class="why-choose-icon mb-3">✅</div>
+                            <h4 class="why-choose-title">Secure & Private</h4>
+                            <p class="why-choose-description">Your files are processed securely and never stored on our servers</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4 text-center">
+                        <div class="why-choose-item">
+                            <div class="why-choose-icon mb-3">⚡</div>
+                            <h4 class="why-choose-title">Lightning Fast</h4>
+                            <p class="why-choose-description">Extract hundreds of images in seconds, not hours</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4 text-center">
+                        <div class="why-choose-item">
+                            <div class="why-choose-icon mb-3">🎯</div>
+                            <h4 class="why-choose-title">Easy to Use</h4>
+                            <p class="why-choose-description">No technical skills required - just upload and download</p>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card border-0">
-                    <div class="card-body">
-                        <div class="display-1 mb-3">🔒</div>
-                        <h5>Secure & Private</h5>
-                        <p class="text-muted">Files processed securely, nothing stored</p>
+        </section>
+    </div>
+
+    <!-- FAQ Section for SEO -->
+    <section class="py-5 bg-light">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <h2 class="text-center fw-bold mb-5">Frequently Asked Questions</h2>
+                    
+                    <div class="accordion" id="faqAccordion">
+                        <div class="accordion-item">
+                            <h3 class="accordion-header">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                                    How do I export images from Excel automatically?
+                                </button>
+                            </h3>
+                            <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    Simply upload your .xlsx file, select the columns containing images and product IDs, and BOM2Pic will automatically extract all images as organized PNG files in a ZIP download.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h3 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                                    What file formats are supported?
+                                </button>
+                            </h3>
+                            <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    BOM2Pic supports .xlsx Excel files and exports images in PNG format for maximum compatibility with catalogs and presentations.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h3 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                                    Is BOM2Pic better than VBA macros?
+                                </button>
+                            </h3>
+                            <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    Yes! BOM2Pic requires no programming knowledge, works instantly without setup, handles large files efficiently, and provides organized output with detailed reports.
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    </section>
 
     <!-- Footer -->
-    <footer class="bg-light py-4 mt-5">
-        <div class="container text-center">
-            <p class="mb-0 text-muted">
-                <small>Images are kept in their original formats. Download includes organized folders and processing report.</small>
-            </p>
+    <footer class="footer-section bg-dark text-white py-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <h5 class="footer-brand mb-3">BOM2Pic</h5>
+                    <p class="footer-description">
+                        The fastest way to extract and organize images from Excel files. 
+                        Built for manufacturing professionals and catalog administrators.
+                    </p>
+                </div>
+                
+                <div class="col-md-2 mb-4">
+                    <h6 class="footer-heading">Product</h6>
+                    <ul class="footer-links">
+                        <li><a href="#" class="footer-link">Features</a></li>
+                        <li><a href="#" class="footer-link">Pricing</a></li>
+                        <li><a href="/admin" class="footer-link">Status</a></li>
+                    </ul>
+                </div>
+                
+                <div class="col-md-3 mb-4">
+                    <h6 class="footer-heading">Company</h6>
+                    <ul class="footer-links">
+                        <li><a href="#" class="footer-link">Privacy Policy</a></li>
+                        <li><a href="#" class="footer-link">Terms of Service</a></li>
+                    </ul>
+                </div>
+                
+                <div class="col-md-3 mb-4">
+                    <h6 class="footer-heading">Support</h6>
+                    <ul class="footer-links">
+                        <li><a href="#" class="footer-link">Help Center</a></li>
+                        <li><a href="#" class="footer-link">Contact Us</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <hr class="footer-divider my-4">
+            
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <p class="footer-copyright mb-0">© 2024 BOM2Pic. All rights reserved.</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <div class="footer-social">
+                        <a href="#" class="footer-social-link">📧</a>
+                        <a href="#" class="footer-social-link">🐦</a>
+                        <a href="#" class="footer-social-link">💼</a>
+                    </div>
+                </div>
+            </div>
         </div>
     </footer>
 
@@ -219,6 +544,13 @@
             imageColumn.addEventListener('change', updateProcessButton);
             nameColumn.addEventListener('change', updateProcessButton);
         });
+
+        // Smooth scroll to signup
+        function scrollToSignup() {
+            document.getElementById('signupSection').scrollIntoView({ 
+                behavior: 'smooth' 
+            });
+        }
 
         function showSignupInterface() {
             document.getElementById('signupSection').classList.remove('d-none');
@@ -415,4 +747,6 @@
         }
     </script>
 </body>
+</html>
+
 </html>
