@@ -146,8 +146,17 @@ if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
 
 @app.get("/admin", include_in_schema=False)
-def admin_dashboard():
-    """Admin dashboard to view users."""
+def admin_dashboard(admin_key: str = None):
+    """Admin dashboard to view users - PROTECTED."""
+    # Simple admin key protection
+    ADMIN_KEY = os.getenv("ADMIN_KEY", "bom2pic_admin_2024")
+    
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(
+            status_code=401, 
+            detail="Unauthorized: Admin access required. Use ?admin_key=YOUR_KEY"
+        )
+    
     from .auth import load_users
     from datetime import datetime
     
