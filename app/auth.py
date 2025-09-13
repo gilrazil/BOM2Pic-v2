@@ -4,6 +4,7 @@ Simple and reliable authentication using Clerk
 """
 import os
 import json
+import sqlite3
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from pathlib import Path
@@ -12,37 +13,93 @@ import clerk
 # Initialize Clerk
 clerk.api_key = os.getenv("CLERK_SECRET_KEY")
 
-# Simple user storage for trial tracking
-USERS_FILE = "users.json"
+# Database storage for trial tracking (persistent on Render)
+DB_FILE = "/opt/render/project/data/users.db" if os.getenv("RENDER") else "users.db"
+
+def init_database():
+    """Initialize SQLite database for user storage."""
+    # Ensure data directory exists on Render
+    if os.getenv("RENDER"):
+        os.makedirs("/opt/render/project/data", exist_ok=True)
+    
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            email TEXT PRIMARY KEY,
+            user_id TEXT,
+            plan TEXT DEFAULT 'trial',
+            trial_start TEXT,
+            trial_end TEXT,
+            subscription_status TEXT DEFAULT 'trial',
+            created_at TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+    print(f"✅ Database initialized at {DB_FILE}")
+
+# Initialize database on import
+init_database()
 
 class AuthError(Exception):
     """Custom authentication error."""
     pass
 
 def load_users() -> Dict:
-    """Load users from JSON file."""
-    print(f"🔍 DEBUG: Attempting to load users from {USERS_FILE}")
-    print(f"🔍 DEBUG: File exists? {Path(USERS_FILE).exists()}")
-    print(f"🔍 DEBUG: Current working directory: {os.getcwd()}")
-    
-    if Path(USERS_FILE).exists():
-        with open(USERS_FILE, 'r') as f:
-            users = json.load(f)
-            print(f"🔍 DEBUG: Loaded {len(users)} users: {list(users.keys())}")
-            return users
-    else:
-        print(f"❌ DEBUG: Users file not found at {USERS_FILE}")
+    """Load users from SQLite database."""
+    try:
+        print(f"🔍 DEBUG: Loading users from database {DB_FILE}")
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.execute("SELECT * FROM users")
+        users = {}
+        
+        for row in cursor.fetchall():
+            email, user_id, plan, trial_start, trial_end, subscription_status, created_at = row
+            users[email] = {
+                "email": email,
+                "user_id": user_id,
+                "plan": plan,
+                "trial_start": trial_start,
+                "trial_end": trial_end,
+                "subscription_status": subscription_status,
+                "created_at": created_at
+            }
+        
+        conn.close()
+        print(f"✅ DEBUG: Loaded {len(users)} users from database: {list(users.keys())}")
+        return users
+    except Exception as e:
+        print(f"❌ DEBUG: Database error: {e}")
         return {}
 
 def save_users(users: Dict) -> None:
-    """Save users to JSON file."""
+    """Save users to SQLite database."""
     try:
-        print(f"🔍 DEBUG: Attempting to save {len(users)} users to {USERS_FILE}")
-        with open(USERS_FILE, 'w') as f:
-            json.dump(users, f, indent=2, default=str)
-        print(f"✅ DEBUG: Successfully saved users to {USERS_FILE}")
+        print(f"🔍 DEBUG: Saving {len(users)} users to database {DB_FILE}")
+        conn = sqlite3.connect(DB_FILE)
+        
+        # Clear existing data and insert new data
+        conn.execute("DELETE FROM users")
+        
+        for email, user_data in users.items():
+            conn.execute("""
+                INSERT INTO users (email, user_id, plan, trial_start, trial_end, subscription_status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                email,
+                user_data.get("user_id"),
+                user_data.get("plan", "trial"),
+                user_data.get("trial_start"),
+                user_data.get("trial_end"),
+                user_data.get("subscription_status", "trial"),
+                user_data.get("created_at")
+            ))
+        
+        conn.commit()
+        conn.close()
+        print(f"✅ DEBUG: Successfully saved {len(users)} users to database")
     except Exception as e:
-        print(f"❌ DEBUG: Failed to save users: {e}")
+        print(f"❌ DEBUG: Failed to save users to database: {e}")
         raise
 
 def verify_clerk_token(token: str) -> Optional[Dict[str, Any]]:
