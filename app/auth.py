@@ -21,15 +21,29 @@ class AuthError(Exception):
 
 def load_users() -> Dict:
     """Load users from JSON file."""
+    print(f"🔍 DEBUG: Attempting to load users from {USERS_FILE}")
+    print(f"🔍 DEBUG: File exists? {Path(USERS_FILE).exists()}")
+    print(f"🔍 DEBUG: Current working directory: {os.getcwd()}")
+    
     if Path(USERS_FILE).exists():
         with open(USERS_FILE, 'r') as f:
-            return json.load(f)
-    return {}
+            users = json.load(f)
+            print(f"🔍 DEBUG: Loaded {len(users)} users: {list(users.keys())}")
+            return users
+    else:
+        print(f"❌ DEBUG: Users file not found at {USERS_FILE}")
+        return {}
 
 def save_users(users: Dict) -> None:
     """Save users to JSON file."""
-    with open(USERS_FILE, 'w') as f:
-        json.dump(users, f, indent=2, default=str)
+    try:
+        print(f"🔍 DEBUG: Attempting to save {len(users)} users to {USERS_FILE}")
+        with open(USERS_FILE, 'w') as f:
+            json.dump(users, f, indent=2, default=str)
+        print(f"✅ DEBUG: Successfully saved users to {USERS_FILE}")
+    except Exception as e:
+        print(f"❌ DEBUG: Failed to save users: {e}")
+        raise
 
 def verify_clerk_token(token: str) -> Optional[Dict[str, Any]]:
     """Verify Clerk JWT token and return user info."""
