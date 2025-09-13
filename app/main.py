@@ -55,12 +55,15 @@ def api_get_plans():
 async def signup(email: str = Form(...)):
     """Simple signup - creates user with trial."""
     try:
+        print(f"🔍 SIGNUP DEBUG: Attempting signup for {email}")
         user = get_or_create_user(email)
+        print(f"✅ SIGNUP SUCCESS: User created/retrieved: {user}")
         return {
             "message": "Welcome! Your 30-day free trial has started.",
             "user": user
         }
     except Exception as e:
+        print(f"❌ SIGNUP ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/process")
