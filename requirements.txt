@@ -8,8 +8,5 @@ python-dotenv
 openpyxl
 Pillow
 
-# Authentication
-clerk-sdk-python
-
-# HTTP client
+# HTTP client (for PayPal integration)
 httpx

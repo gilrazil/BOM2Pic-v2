@@ -8,7 +8,7 @@
 - ⚡ **Lightning Fast** - Extract hundreds of images in seconds
 - 📊 **Perfect for Catalogs** - Designed for parts catalogs and BOMs
 - 🔒 **Secure & Private** - Files processed securely, nothing stored
-- 💰 **Flexible Pricing** - $10/month unlimited or $5/file
+- 💰 **Flexible Pricing** - $39 Lifetime Deal, $10/month unlimited, or $5/file
 
 ## 🛠️ Tech Stack
 
@@ -16,7 +16,7 @@
 - **Frontend**: Bootstrap 5 + Vanilla JavaScript
 - **Authentication**: Simple email-based with trial management
 - **Image Processing**: openpyxl + Pillow
-- **User Storage**: JSON-based (ready for database upgrade)
+- **User Storage**: SQLite database with persistent storage
 
 ## 🚀 Quick Start
 
@@ -38,24 +38,22 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Set up environment variables
+# Quick setup (recommended)
+./scripts/setup-dev.sh
+
+# OR Manual setup:
 cp .env.example .env
 # Edit .env with your configuration
-
-# Run the application
-python -m app.main
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Open http://localhost:8000 in your browser.
 
 ## 📊 Admin Dashboard
 
-View all users and trial status at: http://localhost:8000/admin
-
-Or use the command line:
-```bash
-python admin_dashboard.py
-```
+View all users and trial status:
+- **Web**: http://localhost:8000/admin?admin_key=bom2pic_admin_2024
+- **CLI**: `python scripts/admin_dashboard.py`
 
 ## 🔧 Configuration
 
@@ -78,19 +76,32 @@ BASE_URL=http://localhost:8000
 ## 📁 Project Structure
 
 ```
-BOM2Pic-v2/
-├── app/
-│   ├── main.py              # FastAPI application
-│   ├── auth.py              # Authentication & user management
+BOM2Pic-Fresh/
+├── app/                     # Main application
+│   ├── __init__.py          # Package initialization
+│   ├── main.py              # FastAPI application with all routes
+│   ├── auth.py              # SQLite-based user management
 │   ├── excel_processor.py   # Core Excel processing logic
-│   ├── payment.py           # Payment handling
-│   └── static/
-│       ├── index.html       # Main web interface
-│       ├── styles.css       # Custom styles
-│       └── app.js          # Frontend JavaScript
+│   ├── payment.py           # PayPal integration
+│   └── static/              # Frontend assets
+│       ├── index.html       # Homepage with signup/trial
+│       ├── ltd-deal.html    # Lifetime Deal landing page
+│       ├── styles.css       # Enhanced responsive styles
+│       ├── robots.txt       # SEO crawler instructions
+│       └── sitemap.xml      # SEO sitemap
+├── scripts/                 # Development & admin tools
+│   ├── admin_dashboard.py   # SQLite admin dashboard
+│   ├── main_test.py         # Test mode server
+├── tests/                   # Test files and data
+│   ├── test_local.py        # Local testing script
+│   └── test_files/          # Sample Excel files for testing
+├── data/                    # Database and persistent data
+│   └── users.db             # SQLite user database
+├── assets/                  # Static assets (logos, images)
+│   └── logo-color.png       # BOM2Pic logo
+├── docs/                    # Documentation
+│   └── product-requirements.txt # Product Requirements Document
 ├── requirements.txt         # Python dependencies
-├── admin_dashboard.py       # Admin user management
-├── BOM2Pic PRD.txt         # Product Requirements Document
 └── README.md               # This file
 ```
 
@@ -110,28 +121,44 @@ BOM2Pic-v2/
 
 ## 🔒 Privacy & Security
 
-- User emails stored locally (users.json)
+- User data stored in SQLite database (users.db)
 - No files permanently stored
 - Processing happens in memory
 - Automatic cleanup after processing
 
 ## 📈 Scaling Notes
 
-Current implementation uses JSON file storage. For production scaling:
+Current implementation uses SQLite. For production scaling:
 
-- Replace JSON with PostgreSQL/MySQL
+- Migrate SQLite to PostgreSQL/MySQL
 - Add Redis for session management
 - Implement proper email notifications
 - Add file upload to cloud storage
 - Set up monitoring and analytics
 
+## 🚀 Deployment
+
+### Development
+```bash
+./scripts/setup-dev.sh    # Setup local environment
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Production (Render)
+```bash
+./scripts/deploy-prod.sh   # Deploy to production
+```
+
+**Environment Separation:**
+- **Localhost**: Uses `data/users.db`, sandbox PayPal, debug mode
+- **Production**: Uses `/opt/render/project/data/users.db`, live PayPal, secure keys
+
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. Work on localhost with development environment
+2. Test thoroughly with `./scripts/setup-dev.sh`
+3. Deploy to production with `./scripts/deploy-prod.sh`
+4. Render auto-deploys from `main` branch
 
 ## 📄 License
 

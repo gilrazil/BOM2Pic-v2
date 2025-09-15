@@ -6,7 +6,6 @@ import io
 import re
 import zipfile
 from datetime import datetime
-from io import BytesIO
 from pathlib import Path
 from typing import List, NamedTuple
 
@@ -52,7 +51,7 @@ def extract_images_from_excel(xlsx_bytes: bytes, image_col_letter: str, name_col
         name_col_idx = column_letter_to_index(name_col_letter)
         
         # Load workbook
-        workbook = openpyxl.load_workbook(BytesIO(xlsx_bytes))
+        workbook = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
         extracted_images = []
         
         for sheet_name in workbook.sheetnames:
@@ -105,7 +104,7 @@ def normalize_filename(name: str) -> str:
 def detect_image_extension(image_bytes: bytes) -> str:
     """Detect image format and return appropriate extension."""
     try:
-        with Image.open(BytesIO(image_bytes)) as img:
+        with Image.open(io.BytesIO(image_bytes)) as img:
             format_map = {
                 'JPEG': 'jpg',
                 'PNG': 'png',
@@ -119,7 +118,7 @@ def detect_image_extension(image_bytes: bytes) -> str:
         return 'png'  # Default fallback
 
 
-def create_images_zip(images: List[ImageData]) -> BytesIO:
+def create_images_zip(images: List[ImageData]) -> io.BytesIO:
     """
     Create a ZIP file containing all images and a report.
     
@@ -127,12 +126,12 @@ def create_images_zip(images: List[ImageData]) -> BytesIO:
         images: List of ImageData objects
         
     Returns:
-        BytesIO containing ZIP file
+        io.BytesIO containing ZIP file
     """
     if not images:
         raise ValueError("No images to process")
     
-    zip_buffer = BytesIO()
+    zip_buffer = io.BytesIO()
     seen_names = set()
     saved_count = 0
     duplicate_count = 0
@@ -200,8 +199,7 @@ def process_excel_files(files_data: List[tuple], image_column: str, name_column:
             images = extract_images_from_excel(file_bytes, image_column, name_column)
             all_images.extend(images)
         except Exception as e:
-            # Log error but continue with other files
-            print(f"Error processing {filename}: {e}")
+            # Skip failed files and continue with others
             continue
     
     if not all_images:

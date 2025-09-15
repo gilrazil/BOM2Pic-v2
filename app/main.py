@@ -1,33 +1,36 @@
 """
 BOM2Pic - Clean Excel Image Extractor
-FastAPI application with simple authentication
+FastAPI application with simple authentication and PayPal LTD integration
 """
 # Load environment variables FIRST
 from dotenv import load_dotenv
 load_dotenv()
 
+import io
 import os
-from datetime import datetime
+import uuid
+from datetime import datetime, timedelta
 from typing import List
 
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
+from fastapi.responses import FileResponse, StreamingResponse, JSONResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from .auth import get_or_create_user, check_user_access, update_subscription_status
-from .payment import get_plans
+from .payment import get_plans, create_payment_session, verify_payment, PaymentError
 from .excel_processor import process_excel_files
 
-# Configuration
-MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "20"))
+app = FastAPI(
+    title="BOM2Pic",
+    description="Extract images from Excel files with ease",
+    version="2.0.0"
+)
 
-app = FastAPI(title="BOM2Pic", version="2.0.0", description="Excel Image Extractor")
-
-# CORS configuration
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure properly in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,122 +39,251 @@ app.add_middleware(
 # Static files
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-@app.get("/", include_in_schema=False)
-def root():
-    """Serve the main page."""
-    return FileResponse("app/static/index.html")
+# ============================================================================
+# CORE ROUTES
+# ============================================================================
+
+@app.get("/")
+def read_root():
+    """Serve the main HTML page"""
+    return FileResponse('app/static/index.html')
 
 @app.get("/health")
-def health():
-    """Health check endpoint."""
-    return {"status": "ok", "version": "2.0.0", "auth": "simple"}
+def health_check():
+    """Simple health check endpoint"""
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+# ============================================================================
+# API ENDPOINTS  
+# ============================================================================
 
 @app.get("/api/plans")
-def api_get_plans():
-    """Get available pricing plans."""
-    return {"plans": get_plans()}
+def api_plans():
+    """Get available pricing plans"""
+    return get_plans()
 
 @app.post("/api/auth/signup")
 async def signup(email: str = Form(...)):
-    """Simple signup - creates user with trial."""
     try:
-        print(f"🔍 SIGNUP DEBUG: Attempting signup for {email}")
         user = get_or_create_user(email)
-        print(f"✅ SIGNUP SUCCESS: User created/retrieved: {user}")
-        return {
-            "message": "Welcome! Your 30-day free trial has started.",
-            "user": user
-        }
+        return {"success": True, "message": "Account created successfully!", "user": user}
     except Exception as e:
-        print(f"❌ SIGNUP ERROR: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/process")
+@app.post("/api/process")
 async def process_files(
     files: List[UploadFile] = File(...),
+    email: str = Form(...),
     imageColumn: str = Form(...),
-    nameColumn: str = Form(...),
-    user_email: str = Form(...)
+    nameColumn: str = Form(...)
 ):
-    """Process Excel files and extract images."""
-    
-    # Check user access
-    access_info = check_user_access(user_email)
-    if not access_info["access"]:
-        if access_info["reason"] == "trial_expired":
-            return JSONResponse(
-                status_code=402,
-                content={
-                    "error": "trial_expired",
-                    "message": access_info["message"],
-                    "plans_available": True
-                }
-            )
-        else:
-            return JSONResponse(
-                status_code=401,
-                content={"error": access_info["reason"], "message": access_info["message"]}
-            )
-    
-    # Validate files
-    if not files:
-        raise HTTPException(status_code=400, detail="No files uploaded")
-    
-    # Validate columns
-    if not imageColumn or not nameColumn:
-        raise HTTPException(status_code=400, detail="Both image and name columns are required")
-    
-    if imageColumn == nameColumn:
-        raise HTTPException(status_code=400, detail="Image and name columns must be different")
-    
-    # Process files
+    """Process uploaded Excel files and extract images"""
     try:
+        # Check user access
+        user = get_or_create_user(email)
+        access_info = check_user_access(user)
+        if not access_info["access"]:
+            raise HTTPException(
+                status_code=402, 
+                detail="Payment required. Please subscribe to process files."
+            )
+        
+        # Convert UploadFile objects to the format expected by processor
         files_data = []
         for file in files:
-            if not file.filename.lower().endswith('.xlsx'):
-                raise HTTPException(status_code=400, detail=f"Only .xlsx files supported: {file.filename}")
-            
-            contents = await file.read()
-            size_mb = len(contents) / (1024 * 1024)
-            if size_mb > MAX_UPLOAD_MB:
-                raise HTTPException(status_code=400, detail=f"File too large: {file.filename}")
-            
-            files_data.append((file.filename, contents))
+            content = await file.read()
+            files_data.append((file.filename, content))
         
-        # Process all files
-        zip_buffer, total_images, saved_count, duplicate_count = process_excel_files(
-            files_data, imageColumn, nameColumn
+        # Process files with column selection
+        zip_buffer, total_images, saved_count, duplicate_count = process_excel_files(files_data, imageColumn, nameColumn)
+        
+        # Return ZIP file as download
+        return StreamingResponse(
+            io.BytesIO(zip_buffer.getvalue()),
+            media_type="application/zip",
+            headers={"Content-Disposition": "attachment; filename=extracted_images.zip"}
         )
         
-        # Create response
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        filename = f"bom2pic_images_{timestamp}.zip"
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# PayPal LTD Integration
+@app.post("/api/payment/create-session")
+async def create_payment(
+    plan: str = Form(...),
+    email: str = Form(...)
+):
+    """Create PayPal payment session for LTD or other plans"""
+    try:
+        user = get_or_create_user(email)
         
-        headers = {
-            "Content-Disposition": f"attachment; filename={filename}",
-            "X-Content-Type-Options": "nosniff",
-            "X-B2P-Processed": str(total_images),
-            "X-B2P-Saved": str(saved_count),
-            "X-B2P-Duplicate": str(duplicate_count),
-            "X-B2P-Plan": access_info.get("plan", "unknown"),
-            "X-B2P-Message": access_info.get("message", "")
+        # LOCALHOST TEST MODE - Skip PayPal for development
+        if "localhost" in os.getenv("BASE_URL", "localhost"):
+            # TEST MODE: Simulating payment for development
+            
+            # Create fake session ID for testing
+            test_session_id = str(uuid.uuid4())
+            
+            # Redirect to success page immediately (simulating PayPal success)
+            base_url = "http://localhost:8000"
+            success_url = f"{base_url}/payment/success?session_id={test_session_id}&plan={plan}&email={email}"
+            
+            return {
+                "success": True,
+                "checkout_url": success_url,
+                "session_id": test_session_id
+            }
+        
+        # PRODUCTION MODE - Real PayPal integration
+        # Create success and cancel URLs
+        base_url = os.getenv("BASE_URL", "http://localhost:8000")
+        success_url = f"{base_url}/payment/success?session_id={{session_id}}&plan={plan}&email={email}"
+        cancel_url = f"{base_url}/payment/cancel?plan={plan}"
+        
+        # Create PayPal session
+        session = await create_payment_session(
+            plan=plan,
+            user_email=email,
+            success_url=success_url,
+            cancel_url=cancel_url
+        )
+        
+        return {
+            "success": True,
+            "checkout_url": session["checkout_url"],
+            "session_id": session["session_id"]
         }
         
-        return StreamingResponse(zip_buffer, media_type="application/zip", headers=headers)
-        
-    except ValueError as e:
+    except PaymentError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Payment creation failed: {e}")
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+@app.get("/payment/success")
+async def payment_success(
+    session_id: str,
+    plan: str,
+    email: str,
+    request: Request
+):
+    """Handle successful PayPal payment"""
+    try:
+        # LOCALHOST TEST MODE - Skip PayPal verification
+        if "localhost" in str(request.base_url):
+            # TEST MODE: Simulating successful payment for development
+            verification = {
+                "verified": True,
+                "order_id": session_id,
+                "amount": "39" if plan == "lifetime" else ("10" if plan == "monthly" else "5")
+            }
+        else:
+            # PRODUCTION MODE - Verify payment with PayPal
+            verification = await verify_payment(session_id)
+        
+        if verification["verified"]:
+            # Update user subscription based on plan
+            user = get_or_create_user(email)
+            
+            if plan == "lifetime":
+                # Grant lifetime access
+                update_subscription_status(email, "lifetime", expires_at=None)
+                message = "🎉 Lifetime Access Activated! You now have unlimited access to BOM2Pic forever!"
+            elif plan == "monthly":
+                # Grant monthly access (you might want to implement proper subscription logic)
+                expires_at = (datetime.now() + timedelta(days=30)).isoformat()
+                update_subscription_status(email, "monthly", expires_at=expires_at)
+                message = "✅ Monthly Subscription Activated! You have unlimited access for 30 days."
+            elif plan == "per_file":
+                # Grant single file processing credit
+                update_subscription_status(email, "per_file", expires_at=None)
+                message = "✅ File Credit Added! You can now process one Excel file."
+            
+            # Return success page
+            html_content = f"""
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Payment Successful - BOM2Pic</title>
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+                <link href="/static/styles.css" rel="stylesheet">
+            </head>
+            <body>
+                <div class="container py-5">
+                    <div class="row justify-content-center">
+                        <div class="col-md-8 text-center">
+                            <div class="card border-success">
+                                <div class="card-header bg-success text-white">
+                                    <h2>🎉 Payment Successful!</h2>
+                                </div>
+                                <div class="card-body p-5">
+                                    <h3 class="text-success mb-4">{message}</h3>
+                                    <p class="lead">Your payment of ${verification['amount']} has been processed successfully.</p>
+                                    <p><strong>Order ID:</strong> {verification['order_id']}</p>
+                                    <p><strong>Email:</strong> {email}</p>
+                                    
+                                    <div class="mt-4">
+                                        <a href="/tool?email={email}" class="btn btn-primary btn-lg me-3">Start Using BOM2Pic</a>
+                                        <a href="/ltd-deal" class="btn btn-outline-secondary">Back to Pricing</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            return HTMLResponse(content=html_content)
+        else:
+            raise HTTPException(status_code=400, detail="Payment verification failed")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Payment processing failed: {e}")
+
+@app.get("/payment/cancel")
+async def payment_cancel(plan: str):
+    """Handle cancelled PayPal payment"""
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Payment Cancelled - BOM2Pic</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link href="/static/styles.css" rel="stylesheet">
+    </head>
+    <body>
+        <div class="container py-5">
+            <div class="row justify-content-center">
+                <div class="col-md-8 text-center">
+                    <div class="card border-warning">
+                        <div class="card-header bg-warning text-dark">
+                            <h2>⚠️ Payment Cancelled</h2>
+                        </div>
+                        <div class="card-body p-5">
+                            <h3 class="text-warning mb-4">No worries! Your payment was cancelled.</h3>
+                            <p class="lead">You can try again anytime. The {plan} plan will be waiting for you!</p>
+                            
+                            <div class="mt-4">
+                                <a href="/ltd-deal" class="btn btn-warning btn-lg me-3">Try Again</a>
+                                <a href="/" class="btn btn-outline-secondary">Back to Home</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
 
 @app.get("/admin", include_in_schema=False)
 def admin_dashboard(admin_key: str = None):
-    """Admin dashboard to view users - PROTECTED."""
-    # Simple admin key protection
+    """Web-based admin dashboard for user management"""
     ADMIN_KEY = os.getenv("ADMIN_KEY", "bom2pic_admin_2024")
     
     if admin_key != ADMIN_KEY:
@@ -161,11 +293,9 @@ def admin_dashboard(admin_key: str = None):
         )
     
     from .auth import load_users
-    from datetime import datetime
-    
     users = load_users()
     
-    html_content = """
+    html_content = f"""
     <!DOCTYPE html>
     <html>
     <head>
@@ -173,93 +303,357 @@ def admin_dashboard(admin_key: str = None):
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     </head>
     <body>
-        <div class="container py-5">
-            <h1>🚀 BOM2Pic Admin Dashboard</h1>
-            <div class="row mt-4">
-                <div class="col-md-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5>📊 User Overview</h5>
-                        </div>
-                        <div class="card-body">
-    """
-    
-    if not users:
-        html_content += "<p>No users yet.</p>"
-    else:
-        html_content += f"<p><strong>Total Users:</strong> {len(users)}</p>"
-        html_content += '<div class="table-responsive"><table class="table table-striped">'
-        html_content += '<thead><tr><th>Email</th><th>Plan</th><th>Status</th><th>Trial Days Left</th><th>Created</th></tr></thead><tbody>'
-        
-        for email, user in users.items():
-            trial_end = datetime.fromisoformat(user['trial_end']) if user.get('trial_end') else None
-            days_left = (trial_end - datetime.now()).days if trial_end else 0
+        <div class="container py-4">
+            <h1>BOM2Pic Admin Dashboard</h1>
+            <p class="text-muted">Total Users: {len(users)}</p>
             
-            status_badge = "success" if days_left > 0 else "danger"
-            status_text = f"{days_left} days left" if days_left > 0 else f"Expired {abs(days_left)} days ago"
-            
-            html_content += f"""
-            <tr>
-                <td>{email}</td>
-                <td><span class="badge bg-info">{user.get('plan', 'unknown')}</span></td>
-                <td><span class="badge bg-{status_badge}">{user.get('subscription_status', 'unknown')}</span></td>
-                <td>{status_text}</td>
-                <td>{user.get('created_at', 'unknown')[:10]}</td>
-            </tr>
-            """
-        
-        html_content += '</tbody></table></div>'
-    
-    html_content += """
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="mt-4">
-                <a href="/" class="btn btn-primary">← Back to App</a>
-                <button onclick="location.reload()" class="btn btn-secondary">🔄 Refresh</button>
-            </div>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Created</th>
+                        <th>Subscription</th>
+                        <th>Status</th>
+                        <th>Expires</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {''.join([f'''
+                    <tr>
+                        <td>{user["email"]}</td>
+                        <td>{user.get("created_at", "Unknown")}</td>
+                        <td><span class="badge bg-primary">{user.get("subscription_type", "free")}</span></td>
+                        <td><span class="badge bg-{"success" if user.get("is_active", True) else "danger"}">{"Active" if user.get("is_active", True) else "Inactive"}</span></td>
+                        <td>{user.get("expires_at", "Never")}</td>
+                    </tr>
+                    ''' for user in users])}
+                </tbody>
+            </table>
         </div>
     </body>
     </html>
     """
-    
-    from fastapi.responses import HTMLResponse
     return HTMLResponse(content=html_content)
 
-@app.get("/how-to-export-images-from-excel", include_in_schema=False)
-def how_to_export_guide():
-    """SEO blog post: How to Export Images from Excel Automatically"""
-    html_content = """
+@app.get("/ltd-deal", include_in_schema=False)
+def ltd_deal_page():
+    """$39 Lifetime Deal Landing Page - Matches Lovable Design"""
+    return FileResponse('app/static/ltd-deal.html')
+
+@app.get("/tool", include_in_schema=False)
+def tool_page(email: str = None):
+    """Clean tool page for paid users - just upload interface"""
+    if not email:
+        return RedirectResponse(url="/")
+
+    # Check user access
+    try:
+        user = get_or_create_user(email)
+        access_info = check_user_access(user)
+
+        if not access_info["access"]:
+            return RedirectResponse(url="/ltd-deal")
+    except Exception as e:
+        return RedirectResponse(url="/")
+
+    # Show clean tool with user status
+    html_content = f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>How to Export Images from Excel Automatically - Complete Guide 2024</title>
-        <meta name="description" content="Learn 3 proven methods to automatically export images from Excel files. Step-by-step guide with BOM2Pic, VBA macros, and manual methods. Save hours of work!">
-        <meta name="keywords" content="export images from Excel, Excel image extraction, BOM2Pic tutorial, Excel automation, extract pictures from spreadsheet">
-        
-        <!-- Open Graph -->
-        <meta property="og:title" content="How to Export Images from Excel Automatically - Complete Guide">
-        <meta property="og:description" content="Learn the fastest way to extract hundreds of images from Excel files without manual work.">
-        <meta property="og:type" content="article">
+        <title>BOM2Pic Tool - Extract Images from Excel</title>
         
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
         
+        <!-- Bootstrap CSS -->
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+        <!-- Custom CSS -->
         <link href="/static/styles.css" rel="stylesheet">
+    </head>
+    <body>
+        <!-- Navigation -->
+        <nav class="navbar navbar-light bg-white shadow-sm">
+            <div class="container">
+                <a class="navbar-brand fw-bold" href="/">🚀 BOM2Pic</a>
+                <div>
+                    <span class="badge bg-success me-2">✅ {(access_info.get('plan') or 'ACTIVE').upper()} ACCESS</span>
+                    <span class="text-muted">{email}</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Welcome Section -->
+        <section class="py-4 bg-light">
+            <div class="container">
+                <div class="text-center">
+                    <h1 class="h3 fw-bold text-primary">Welcome to BOM2Pic!</h1>
+                    <p class="text-success mb-0">{access_info['message']}</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Upload Interface Section -->
+        <section id="upload-interface" class="py-5">
+            <div class="container">
+                <div class="row justify-content-center">
+                    <div class="col-lg-8">
+                        <div class="upload-container bg-white p-5 rounded-3 shadow-sm border">
+                            <div class="text-center mb-4">
+                                <h3>Upload Your Excel File</h3>
+                                <p class="text-muted">Drag and drop your Excel file or click to browse. We support .xlsx and .xls formats.</p>
+                            </div>
+
+                            <form id="uploadForm" class="text-center">
+                                <input type="hidden" name="email" value="{email}">
+
+                                <div class="upload-area border border-dashed border-primary rounded-3 p-5 mb-4"
+                                     ondrop="dropHandler(event);" ondragover="dragOverHandler(event);" ondragenter="dragEnterHandler(event);" ondragleave="dragLeaveHandler(event);">
+                                    <div class="upload-icon mb-3">
+                                        <svg width="64" height="64" fill="currentColor" class="text-primary" viewBox="0 0 16 16">
+                                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                            <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+                                        </svg>
+                                    </div>
+                                    <h5>Drop your Excel file here</h5>
+                                    <p class="text-muted mb-3">or</p>
+                                    <input type="file" id="fileInput" name="files" multiple accept=".xlsx,.xls" style="display: none;" onchange="handleFileSelect(event)">
+                                    <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                                        Choose Files
+                                    </button>
+                                    <p class="small text-muted mt-3">Supported formats: .xlsx, .xls (up to 50MB)</p>
+                                </div>
+
+                                <!-- Column Selection (hidden initially) -->
+                                <div id="columnSelection" class="mt-4" style="display: none;">
+                                    <h4 class="mb-3">Select Columns</h4>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <label for="imageColumn" class="form-label">Image Column:</label>
+                                            <select id="imageColumn" name="imageColumn" class="form-select" required>
+                                                <option value="">Choose image column...</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="nameColumn" class="form-label">Part Number Column:</label>
+                                            <select id="nameColumn" name="nameColumn" class="form-select" required>
+                                                <option value="">Choose P/N column...</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="text-center mt-4">
+                                        <button type="submit" id="processBtn" class="btn btn-success btn-lg">
+                                            🚀 Extract Images
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+
+                            <div id="results" class="mt-4"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <style>
+        .upload-area.drag-over {{
+            border-color: #0d6efd !important;
+            background-color: rgba(13, 110, 253, 0.1) !important;
+        }}
+        </style>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+        <script>
+        // Drag and drop functionality for the tool page
+        function dropHandler(ev) {{
+            ev.preventDefault();
+            const files = ev.dataTransfer.files;
+            handleFileSelect({{ target: {{ files: files }} }});
+            ev.target.classList.remove('drag-over');
+        }}
+
+        function dragOverHandler(ev) {{
+            ev.preventDefault();
+        }}
+
+        function dragEnterHandler(ev) {{
+            ev.preventDefault();
+            ev.target.classList.add('drag-over');
+        }}
+
+        function dragLeaveHandler(ev) {{
+            ev.preventDefault();
+            ev.target.classList.remove('drag-over');
+        }}
+
+        function handleFileSelect(event) {{
+            const files = event.target.files;
+            const columnSelection = document.getElementById('columnSelection');
+            
+            if (files.length > 0) {{
+                // Store files globally for later processing
+                window.selectedFiles = files;
+                
+                // Show success message
+                const uploadArea = document.querySelector('.upload-area');
+                uploadArea.innerHTML = `
+                    <div class="text-success mb-3">
+                        <svg width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.061L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                        </svg>
+                    </div>
+                    <h5 class="text-success">Files Uploaded Successfully!</h5>
+                    <p class="text-muted mb-0">${{files.length}} file(s) ready for processing</p>
+                `;
+                
+                // Load column headers from the first file
+                loadColumnHeaders(files[0]);
+                
+                // Show column selection
+                columnSelection.style.display = 'block';
+            }}
+        }}
+        
+        function loadColumnHeaders(file) {{
+            // This would typically read the Excel file to get column headers
+            // For now, we'll populate with common column letters/names
+            const imageSelect = document.getElementById('imageColumn');
+            const nameSelect = document.getElementById('nameColumn');
+            
+            // Clear existing options
+            imageSelect.innerHTML = '<option value="">Choose image column...</option>';
+            nameSelect.innerHTML = '<option value="">Choose P/N column...</option>';
+            
+            // Add column options (A-Z)
+            const columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+            columns.forEach(col => {{
+                imageSelect.innerHTML += `<option value="${{col}}">Column ${{col}}</option>`;
+                nameSelect.innerHTML += `<option value="${{col}}">Column ${{col}}</option>`;
+            }});
+        }}
+        
+        // Handle form submission
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {{
+            e.preventDefault();
+            
+            const imageColumn = document.getElementById('imageColumn').value;
+            const nameColumn = document.getElementById('nameColumn').value;
+            const email = document.querySelector('input[name="email"]').value;
+            
+            if (!imageColumn || !nameColumn) {{
+                alert('Please select both image and part number columns.');
+                return;
+            }}
+            
+            if (imageColumn === nameColumn) {{
+                alert('Image and part number columns must be different.');
+                return;
+            }}
+            
+            if (!window.selectedFiles || window.selectedFiles.length === 0) {{
+                alert('Please select files first.');
+                return;
+            }}
+            
+            // Show processing state
+            const processBtn = document.getElementById('processBtn');
+            const originalText = processBtn.innerHTML;
+            processBtn.disabled = true;
+            processBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+            
+            try {{
+                // Create FormData with files and column selections
+                const formData = new FormData();
+                formData.append('email', email);
+                formData.append('imageColumn', imageColumn);
+                formData.append('nameColumn', nameColumn);
+                
+                for (let i = 0; i < window.selectedFiles.length; i++) {{
+                    formData.append('files', window.selectedFiles[i]);
+                }}
+                
+                // Submit to processing endpoint
+                const response = await fetch('/api/process', {{
+                    method: 'POST',
+                    body: formData
+                }});
+                
+                if (response.ok) {{
+                    // Handle successful processing (download file)
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'extracted_images.zip';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    // Show success message
+                    document.getElementById('results').innerHTML = `
+                        <div class="alert alert-success">
+                            <h4>✅ Processing Complete!</h4>
+                            <p>Your images have been extracted and downloaded as a ZIP file.</p>
+                        </div>
+                    `;
+                }} else {{
+                    throw new Error('Processing failed');
+                }}
+            }} catch (error) {{
+                // Show error message
+                document.getElementById('results').innerHTML = `
+                    <div class="alert alert-danger">
+                        <h4>❌ Processing Error</h4>
+                        <p>There was an error processing your files. Please try again.</p>
+                    </div>
+                `;
+            }} finally {{
+                // Reset button
+                processBtn.disabled = false;
+                processBtn.innerHTML = originalText;
+            }}
+        }});
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+
+
+@app.get("/how-to-export-images-from-excel", include_in_schema=False)
+def blog_post_export_images():
+    """SEO-optimized blog post about exporting images from Excel"""
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        <!-- SEO Meta Tags -->
+        <title>How to Export Images from Excel Files: Complete Guide 2024 | BOM2Pic</title>
+        <meta name="description" content="Learn how to export and extract images from Excel files easily. Step-by-step guide with manual methods and automated tools like BOM2Pic for bulk image extraction.">
+        <meta name="keywords" content="export images from excel, extract images excel, excel to image, save images from spreadsheet, bulk image extraction">
+        
+        <!-- Open Graph -->
+        <meta property="og:title" content="How to Export Images from Excel Files: Complete Guide 2024">
+        <meta property="og:description" content="Learn how to export and extract images from Excel files easily. Step-by-step guide with manual methods and automated tools.">
+        <meta property="og:type" content="article">
+        <meta property="og:url" content="https://bom2pic.com/how-to-export-images-from-excel">
         
         <!-- Structured Data -->
         <script type="application/ld+json">
         {
             "@context": "https://schema.org",
             "@type": "Article",
-            "headline": "How to Export Images from Excel Automatically",
-            "description": "Complete guide to automatically extracting images from Excel files",
+            "headline": "How to Export Images from Excel Files: Complete Guide 2024",
+            "description": "Learn how to export and extract images from Excel files easily. Step-by-step guide with manual methods and automated tools like BOM2Pic for bulk image extraction.",
             "author": {
                 "@type": "Organization",
                 "name": "BOM2Pic"
@@ -272,13 +666,14 @@ def how_to_export_guide():
             "dateModified": "2024-01-15"
         }
         </script>
+        
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link href="/static/styles.css" rel="stylesheet">
     </head>
     <body>
-        <!-- Navigation -->
         <nav class="navbar navbar-light bg-white shadow-sm">
             <div class="container">
                 <a class="navbar-brand fw-bold" href="/">🚀 BOM2Pic</a>
-                <a href="/" class="btn btn-primary">Try Free</a>
             </div>
         </nav>
         
@@ -287,233 +682,156 @@ def how_to_export_guide():
                 <div class="col-lg-8">
                     <article>
                         <header class="mb-5">
-                            <h1 class="display-5 fw-bold mb-4">How to Export Images from Excel Automatically</h1>
-                            <p class="lead">Learn the fastest way to extract hundreds of images from Excel files without manual work or complex VBA programming. Complete guide with 3 proven methods.</p>
-                            <div class="d-flex align-items-center text-muted mb-4">
-                                <small>📅 Updated January 2024 • ⏱️ 5 min read • 💼 For Excel professionals</small>
-                            </div>
+                            <h1 class="display-4 fw-bold mb-3">How to Export Images from Excel Files: Complete Guide 2024</h1>
+                            <p class="lead text-muted">Learn multiple methods to extract and save images from Excel spreadsheets, from manual techniques to automated bulk processing.</p>
+                            <small class="text-muted">Published on January 15, 2024 • 8 min read</small>
                         </header>
                         
-                        <div class="alert alert-info">
-                            <h4>💡 Quick Answer</h4>
-                            <p class="mb-0">The fastest way to export images from Excel is using <strong>BOM2Pic</strong> - upload your file, select columns, download organized images in seconds. No coding required.</p>
+                        <div class="mb-5">
+                            <h2>Why Export Images from Excel?</h2>
+                            <p>Excel files often contain valuable images - product photos, charts, diagrams, or embedded pictures. Whether you're managing a product catalog, creating presentations, or organizing visual content, extracting these images efficiently is crucial.</p>
                         </div>
                         
-                        <h2>The Problem: Manual Image Extraction is Painful</h2>
-                        <p>If you work with parts catalogs, product listings, or BOMs in Excel, you know the frustration:</p>
-                        <ul class="mb-4">
-                            <li>📸 <strong>Hundreds of images</strong> embedded in spreadsheets</li>
-                            <li>⏰ <strong>Hours of manual work</strong> - right-click, save, rename, organize</li>
-                            <li>❌ <strong>Error-prone process</strong> - missing images, wrong names, poor organization</li>
-                            <li>🔧 <strong>Technical barriers</strong> - VBA programming knowledge required</li>
-                        </ul>
-                        
-                        <div class="bg-light p-4 rounded-3 mb-4">
-                            <h3>💸 The Real Cost</h3>
-                            <p class="mb-2"><strong>Manual extraction:</strong> 500 images = 4-6 hours of work</p>
-                            <p class="mb-0"><strong>Automated extraction:</strong> 500 images = 2 minutes</p>
-                        </div>
-                        
-                        <h2>Method 1: BOM2Pic (Recommended) ⭐</h2>
-                        <p>BOM2Pic is a web-based tool designed specifically for extracting images from Excel files. Here's how it works:</p>
-                        
-                        <div class="row g-4 my-4">
-                            <div class="col-md-4 text-center">
-                                <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px; font-size: 1.5rem;">1</div>
-                                <h4 class="h5">Upload Excel File</h4>
-                                <p class="small">Upload your .xlsx file containing images and product data</p>
-                            </div>
-                            <div class="col-md-4 text-center">
-                                <div class="bg-success text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px; font-size: 1.5rem;">2</div>
-                                <h4 class="h5">Select Columns</h4>
-                                <p class="small">Choose which columns contain images and product IDs</p>
-                            </div>
-                            <div class="col-md-4 text-center">
-                                <div class="bg-warning text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px; font-size: 1.5rem;">3</div>
-                                <h4 class="h5">Download ZIP</h4>
-                                <p class="small">Get organized PNG files with proper naming</p>
+                        <div class="mb-5">
+                            <h2>Method 1: Manual Copy-Paste (Small Scale)</h2>
+                            <ol>
+                                <li><strong>Right-click the image</strong> in Excel</li>
+                                <li><strong>Select "Copy"</strong> from the context menu</li>
+                                <li><strong>Open image editor</strong> (Paint, Photoshop, etc.)</li>
+                                <li><strong>Paste and save</strong> as desired format</li>
+                            </ol>
+                            <div class="alert alert-warning">
+                                <strong>Limitation:</strong> Time-consuming for multiple images. Not practical for bulk extraction.
                             </div>
                         </div>
                         
-                        <div class="alert alert-success">
-                            <h4>✅ BOM2Pic Advantages</h4>
-                            <ul class="mb-0">
-                                <li><strong>No technical knowledge</strong> - Works in any web browser</li>
-                                <li><strong>Batch processing</strong> - Handle multiple files at once</li>
-                                <li><strong>Smart organization</strong> - Automatic file naming and folder structure</li>
-                                <li><strong>30-day free trial</strong> - Test with your files risk-free</li>
-                                <li><strong>Enterprise security</strong> - Files processed securely, nothing stored</li>
-                            </ul>
+                        <div class="mb-5">
+                            <h2>Method 2: Save As Web Page</h2>
+                            <ol>
+                                <li><strong>File → Save As</strong></li>
+                                <li><strong>Choose "Web Page, Complete"</strong></li>
+                                <li><strong>Save to folder</strong></li>
+                                <li><strong>Check the "_files" folder</strong> created alongside</li>
+                            </ol>
+                            <div class="alert alert-info">
+                                <strong>Pro:</strong> Extracts all images at once<br>
+                                <strong>Con:</strong> Creates additional HTML files and folders
+                            </div>
                         </div>
                         
-                        <h2>Method 2: VBA Macro Programming</h2>
-                        <p>For Excel power users, VBA macros can automate image extraction. However, this method requires:</p>
-                        <ul>
-                            <li>🔧 <strong>VBA programming knowledge</strong></li>
-                            <li>⏱️ <strong>Hours of setup and debugging</strong></li>
-                            <li>🐛 <strong>Error handling and maintenance</strong></li>
-                            <li>📁 <strong>Manual file organization</strong></li>
-                        </ul>
-                        
-                        <h2>Method 3: Manual Extraction</h2>
-                        <p>The traditional right-click and save method:</p>
-                        <ol>
-                            <li>Right-click on each image in Excel</li>
-                            <li>Select "Save as Picture"</li>
-                            <li>Choose location and rename file</li>
-                            <li>Repeat for every image</li>
-                        </ol>
-                        <p><strong>Time required:</strong> 30-60 seconds per image</p>
-                        
-                        <h2>Comparison: Which Method Should You Choose?</h2>
-                        <div class="table-responsive mb-4">
-                            <table class="table table-striped">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th>Method</th>
-                                        <th>Setup Time</th>
-                                        <th>Technical Skills</th>
-                                        <th>Speed (500 images)</th>
-                                        <th>Organization</th>
-                                        <th>Best For</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr class="table-success">
-                                        <td><strong>BOM2Pic</strong></td>
-                                        <td>✅ Instant</td>
-                                        <td>✅ None required</td>
-                                        <td>✅ 2 minutes</td>
-                                        <td>✅ Automatic</td>
-                                        <td>Everyone</td>
-                                    </tr>
-                                    <tr>
-                                        <td>VBA Macros</td>
-                                        <td>❌ 2-4 hours</td>
-                                        <td>❌ Advanced</td>
-                                        <td>⚠️ 10-15 minutes</td>
-                                        <td>❌ Manual setup</td>
-                                        <td>Developers</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Manual</td>
-                                        <td>✅ None</td>
-                                        <td>✅ Basic</td>
-                                        <td>❌ 4-6 hours</td>
-                                        <td>❌ Manual</td>
-                                        <td>Small datasets</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                        <div class="mb-5">
+                            <h2>Method 3: Automated Extraction with BOM2Pic</h2>
+                            <p>For bulk image extraction, especially from product catalogs or large spreadsheets, automated tools save significant time:</p>
+                            
+                            <div class="card bg-light p-4 mb-4">
+                                <h4>🚀 BOM2Pic Features:</h4>
+                                <ul class="mb-3">
+                                    <li>Extract hundreds of images in seconds</li>
+                                    <li>Organized output with proper naming</li>
+                                    <li>Support for .xlsx and .xls files</li>
+                                    <li>Batch processing multiple files</li>
+                                    <li>No software installation required</li>
+                                </ul>
+                                <a href="/" class="btn btn-primary">Try BOM2Pic Free →</a>
+                            </div>
                         </div>
                         
-                        <h2>Step-by-Step: Using BOM2Pic</h2>
-                        <div class="alert alert-primary">
-                            <h4>📋 What You'll Need</h4>
-                            <ul class="mb-0">
-                                <li>Excel file (.xlsx) with embedded images</li>
-                                <li>Column with images</li>
-                                <li>Column with product names/IDs (for file naming)</li>
-                                <li>Web browser (Chrome, Firefox, Safari, Edge)</li>
-                            </ul>
+                        <div class="mb-5">
+                            <h2>Comparison Table</h2>
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Method</th>
+                                            <th>Speed</th>
+                                            <th>Bulk Processing</th>
+                                            <th>Organization</th>
+                                            <th>Best For</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>Manual Copy-Paste</td>
+                                            <td>Slow</td>
+                                            <td>❌</td>
+                                            <td>Manual</td>
+                                            <td>1-2 images</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Save as Web Page</td>
+                                            <td>Medium</td>
+                                            <td>✅</td>
+                                            <td>Basic</td>
+                                            <td>Single file</td>
+                                        </tr>
+                                        <tr class="table-success">
+                                            <td>BOM2Pic</td>
+                                            <td>Fast</td>
+                                            <td>✅</td>
+                                            <td>Excellent</td>
+                                            <td>Multiple files, catalogs</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                         
-                        <ol class="mb-4">
-                            <li class="mb-3">
-                                <strong>Visit BOM2Pic:</strong> Go to the homepage and start your free trial
-                            </li>
-                            <li class="mb-3">
-                                <strong>Upload your Excel file:</strong> Drag and drop or browse to select your .xlsx file
-                            </li>
-                            <li class="mb-3">
-                                <strong>Select columns:</strong> Choose which column contains images and which contains product names
-                            </li>
-                            <li class="mb-3">
-                                <strong>Process files:</strong> Click "Process Files" and wait for extraction
-                            </li>
-                            <li class="mb-3">
-                                <strong>Download results:</strong> Get a ZIP file with organized images, ready to use
-                            </li>
-                        </ol>
-                        
-                        <h2>Pro Tips for Better Results</h2>
-                        <div class="row g-4 mb-4">
-                            <div class="col-md-6">
-                                <div class="card border-success">
-                                    <div class="card-header bg-success text-white">
-                                        <h5 class="mb-0">✅ Do This</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <ul class="mb-0">
-                                            <li>Use clear, unique product names</li>
-                                            <li>Keep images in consistent columns</li>
-                                            <li>Test with small files first</li>
-                                            <li>Use descriptive file names</li>
-                                        </ul>
+                        <div class="mb-5">
+                            <h2>Frequently Asked Questions</h2>
+                            
+                            <div class="accordion" id="faqAccordion">
+                                <div class="accordion-item">
+                                    <h3 class="accordion-header">
+                                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                                            Can I extract images from password-protected Excel files?
+                                        </button>
+                                    </h3>
+                                    <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
+                                        <div class="accordion-body">
+                                            You'll need to unlock the file first. Most extraction methods, including BOM2Pic, require access to the unprotected file content.
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="card border-danger">
-                                    <div class="card-header bg-danger text-white">
-                                        <h5 class="mb-0">❌ Avoid This</h5>
+                                
+                                <div class="accordion-item">
+                                    <h3 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                                            What image formats are supported?
+                                        </button>
+                                    </h3>
+                                    <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                        <div class="accordion-body">
+                                            Excel typically stores images as PNG, JPEG, or GIF. BOM2Pic extracts them in their original format and can convert to PNG for consistency.
+                                        </div>
                                     </div>
-                                    <div class="card-body">
-                                        <ul class="mb-0">
-                                            <li>Duplicate product names</li>
-                                            <li>Special characters in names</li>
-                                            <li>Very large files (>50MB)</li>
-                                            <li>Password-protected files</li>
-                                        </ul>
+                                </div>
+                                
+                                <div class="accordion-item">
+                                    <h3 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                                            How do I maintain image quality during extraction?
+                                        </button>
+                                    </h3>
+                                    <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                        <div class="accordion-body">
+                                            Automated tools like BOM2Pic preserve original image quality. Manual methods may compress images depending on your paste destination.
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
-                        <h2>Frequently Asked Questions</h2>
-                        <div class="accordion mb-4" id="faqAccordion">
-                            <div class="accordion-item">
-                                <h3 class="accordion-header">
-                                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
-                                        What file formats are supported?
-                                    </button>
-                                </h3>
-                                <div id="faq1" class="accordion-collapse collapse show">
-                                    <div class="accordion-body">
-                                        BOM2Pic supports .xlsx Excel files and exports images as PNG files for maximum compatibility.
-                                    </div>
+                        <div class="mb-5">
+                            <h2>Conclusion</h2>
+                            <p>Extracting images from Excel files doesn't have to be tedious. While manual methods work for occasional use, automated tools like BOM2Pic dramatically improve efficiency for regular or bulk extraction needs.</p>
+                            
+                            <div class="card border-primary">
+                                <div class="card-body text-center">
+                                    <h4>Ready to Extract Images Efficiently?</h4>
+                                    <p>Try BOM2Pic's automated image extraction - free for your first files!</p>
+                                    <a href="/" class="btn btn-primary btn-lg">Start Free Trial</a>
                                 </div>
                             </div>
-                            <div class="accordion-item">
-                                <h3 class="accordion-header">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
-                                        How many images can I extract at once?
-                                    </button>
-                                </h3>
-                                <div id="faq2" class="accordion-collapse collapse">
-                                    <div class="accordion-body">
-                                        BOM2Pic can handle hundreds of images in a single file. The free trial allows up to 20 images, while paid plans support unlimited extraction.
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="accordion-item">
-                                <h3 class="accordion-header">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
-                                        Is my data secure?
-                                    </button>
-                                </h3>
-                                <div id="faq3" class="accordion-collapse collapse">
-                                    <div class="accordion-body">
-                                        Yes! Files are processed securely with end-to-end encryption and are never stored on our servers after processing.
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-primary text-white p-4 rounded-3 text-center">
-                            <h2 class="h3 mb-3">Ready to Save Hours of Work?</h2>
-                            <p class="mb-3">Join hundreds of professionals who've automated their image extraction process with BOM2Pic.</p>
-                            <a href="/" class="btn btn-light btn-lg">Start Free Trial - No Credit Card Required</a>
                         </div>
                     </article>
                 </div>
@@ -522,7 +840,7 @@ def how_to_export_guide():
         
         <footer class="bg-light py-4 mt-5">
             <div class="container text-center">
-                <p class="mb-0"><a href="/" class="text-decoration-none">← Back to BOM2Pic</a></p>
+                <p class="mb-0">&copy; 2024 BOM2Pic. All rights reserved. | <a href="/">Home</a> | <a href="/ltd-deal">Pricing</a></p>
             </div>
         </footer>
         
@@ -530,5 +848,4 @@ def how_to_export_guide():
     </body>
     </html>
     """
-    from fastapi.responses import HTMLResponse
     return HTMLResponse(content=html_content)

@@ -1,6 +1,6 @@
 """
 Simple PayPal payment integration for BOM2Pic.
-Handles $10 monthly subscriptions and $5 per-file payments.
+Handles $10 monthly subscriptions, $5 per-file payments, and $39 lifetime deals.
 """
 import os
 import base64
@@ -30,6 +30,11 @@ PLANS = {
         "name": "Pay Per File",
         "price": 5,
         "description": "Process one file for $5 (no subscription)"
+    },
+    "lifetime": {
+        "name": "Lifetime Deal",
+        "price": 39,
+        "description": "LIFETIME ACCESS - Pay once, use forever! (Limited time: 90% OFF)"
     }
 }
 
@@ -80,7 +85,7 @@ async def create_payment_session(plan: str, user_email: str, success_url: str, c
     Create PayPal payment session.
     
     Args:
-        plan: 'monthly' or 'per_file'
+        plan: 'monthly', 'per_file', or 'lifetime'
         user_email: User's email address
         success_url: URL to redirect after successful payment
         cancel_url: URL to redirect after cancelled payment
@@ -95,46 +100,24 @@ async def create_payment_session(plan: str, user_email: str, success_url: str, c
     access_token = await get_paypal_access_token()
     
     # Create payment payload
-    if plan == "monthly":
-        # For subscription, we'd need to create a subscription plan first
-        # For now, we'll create a simple one-time payment
-        payment_data = {
-            "intent": "CAPTURE",
-            "purchase_units": [{
-                "amount": {
-                    "currency_code": "USD",
-                    "value": str(plan_info["price"])
-                },
-                "description": plan_info["description"]
-            }],
-            "application_context": {
-                "brand_name": "BOM2Pic",
-                "landing_page": "NO_PREFERENCE",
-                "shipping_preference": "NO_SHIPPING",
-                "user_action": "PAY_NOW",
-                "return_url": success_url,
-                "cancel_url": cancel_url
-            }
+    payment_data = {
+        "intent": "CAPTURE",
+        "purchase_units": [{
+            "amount": {
+                "currency_code": "USD",
+                "value": str(plan_info["price"])
+            },
+            "description": plan_info["description"]
+        }],
+        "application_context": {
+            "brand_name": "BOM2Pic",
+            "landing_page": "NO_PREFERENCE",
+            "shipping_preference": "NO_SHIPPING",
+            "user_action": "PAY_NOW",
+            "return_url": success_url,
+            "cancel_url": cancel_url
         }
-    else:  # per_file
-        payment_data = {
-            "intent": "CAPTURE",
-            "purchase_units": [{
-                "amount": {
-                    "currency_code": "USD",
-                    "value": str(plan_info["price"])
-                },
-                "description": plan_info["description"]
-            }],
-            "application_context": {
-                "brand_name": "BOM2Pic",
-                "landing_page": "NO_PREFERENCE",
-                "shipping_preference": "NO_SHIPPING",
-                "user_action": "PAY_NOW",
-                "return_url": success_url,
-                "cancel_url": cancel_url
-            }
-        }
+    }
     
     headers = {
         "Content-Type": "application/json",
@@ -164,7 +147,9 @@ async def create_payment_session(plan: str, user_email: str, success_url: str, c
                     return {
                         "checkout_url": approval_url,
                         "session_id": order.get("id"),
-                        "status": order.get("status")
+                        "status": order.get("status"),
+                        "plan": plan,
+                        "amount": plan_info["price"]
                     }
                 else:
                     raise PaymentError("PayPal order created but no approval URL found")

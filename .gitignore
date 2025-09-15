@@ -39,3 +39,17 @@ app/auth_old.py
 .env.backup
 .env.txt
 users.json
+
+# Test data (keep structure but ignore contents)
+tests/test_files/*.xlsx
+tests/test_files/*.xls
+
+# Data directory (database will be created automatically)
+data/*.db-journal
+data/*.db-wal
+
+# Environment files (keep .env.example, ignore .env)
+.env
+.env.local
+.env.production
+data/*.db
