@@ -348,25 +348,7 @@ def admin_dashboard(admin_key: str = None):
 
 @app.get("/ltd-deal", include_in_schema=False)
 def ltd_deal_page():
-    """$39 Lifetime Deal Landing Page - TEMPORARILY DISABLED"""
-    # SECURITY: Completely disabled until PayPal is properly configured
-    if os.getenv("RENDER"):  # On production
-        return HTMLResponse(
-            content="""
-            <!DOCTYPE html>
-            <html><head><title>Coming Soon - BOM2Pic</title>
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-            </head><body>
-            <div class="container mt-5 text-center">
-                <h1 class="text-primary">🚀 Lifetime Deal Coming Soon!</h1>
-                <p class="lead">We're preparing an amazing $39 Lifetime Deal for you.</p>
-                <p>Please check back in a few days for the launch!</p>
-                <a href="/" class="btn btn-primary">Back to Homepage</a>
-            </div></body></html>
-            """,
-            status_code=503
-        )
-    # Local development only
+    """$39 Lifetime Deal Landing Page - NOW ENABLED"""
     return FileResponse('app/static/ltd-deal.html')
 
 @app.get("/tool", include_in_schema=False)
