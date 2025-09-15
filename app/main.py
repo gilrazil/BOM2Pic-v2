@@ -189,12 +189,8 @@ async def payment_success(
                 "amount": "39" if plan == "lifetime" else ("10" if plan == "monthly" else "5")
             }
         else:
-            # PRODUCTION MODE - Temporarily skip verification for testing
-            verification = {
-                "verified": True,
-                "order_id": token or "sandbox_test",
-                "amount": "39" if plan == "lifetime" else ("10" if plan == "monthly" else "5")
-            }
+            # PRODUCTION MODE - Verify payment with PayPal
+            verification = await verify_payment(token or "unknown")
         
         if verification["verified"]:
             # Update user subscription based on plan
