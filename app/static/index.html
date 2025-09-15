@@ -624,7 +624,8 @@
                     
                     showAlert('success', '🎉 ' + result.message);
                     setTimeout(() => {
-                        showProcessingInterface();
+                        // Redirect to tool page like LTD users
+                        window.location.href = `/tool?email=${encodeURIComponent(email)}`;
                     }, 1500);
                 } else {
                     showAlert('danger', result.detail || 'Signup failed');
@@ -680,9 +681,9 @@
                 
                 // Add user email for simple auth
                 const user = JSON.parse(currentUser || '{}');
-                formData.append('user_email', user.email || 'test@example.com');
+                formData.append('email', user.email || 'test@example.com');
                 
-                const response = await fetch('/process', {
+                const response = await fetch('/api/process', {
                     method: 'POST',
                     body: formData
                 });
