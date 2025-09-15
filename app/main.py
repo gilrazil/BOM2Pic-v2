@@ -142,8 +142,8 @@ async def create_payment(
         
         # PRODUCTION MODE - Real PayPal integration
         # Create success and cancel URLs
-        base_url = os.getenv("BASE_URL", "http://localhost:8000")
-        success_url = f"{base_url}/payment/success?session_id={{session_id}}&plan={plan}&email={email}"
+        base_url = os.getenv("BASE_URL", "https://bom2pic.com")
+        success_url = f"{base_url}/payment/success?plan={plan}&email={email}"
         cancel_url = f"{base_url}/payment/cancel?plan={plan}"
         
         # Create PayPal session
@@ -167,10 +167,11 @@ async def create_payment(
 
 @app.get("/payment/success")
 async def payment_success(
-    session_id: str,
     plan: str,
     email: str,
-    request: Request
+    request: Request,
+    token: str = None,  # PayPal sends 'token' parameter
+    PayerID: str = None  # PayPal sends 'PayerID' parameter
 ):
     """Handle successful PayPal payment"""
     try:
@@ -184,12 +185,12 @@ async def payment_success(
             # TEST MODE: Simulating successful payment for development
             verification = {
                 "verified": True,
-                "order_id": session_id,
+                "order_id": token or "test_session",
                 "amount": "39" if plan == "lifetime" else ("10" if plan == "monthly" else "5")
             }
         else:
             # PRODUCTION MODE - Verify payment with PayPal
-            verification = await verify_payment(session_id)
+            verification = await verify_payment(token or "unknown")
         
         if verification["verified"]:
             # Update user subscription based on plan
