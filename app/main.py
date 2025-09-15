@@ -114,13 +114,6 @@ async def create_payment(
     email: str = Form(...)
 ):
     """Create PayPal payment session for LTD or other plans"""
-    # SECURITY: Disable payment creation on production until PayPal is configured
-    if os.getenv("RENDER"):
-        raise HTTPException(
-            status_code=503,
-            detail="Payment system temporarily unavailable. Please try again later."
-        )
-        
     try:
         user = get_or_create_user(email)
         
