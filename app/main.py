@@ -114,6 +114,13 @@ async def create_payment(
     email: str = Form(...)
 ):
     """Create PayPal payment session for LTD or other plans"""
+    # SECURITY: Disable payment creation on production until PayPal is configured
+    if os.getenv("RENDER"):
+        raise HTTPException(
+            status_code=503,
+            detail="Payment system temporarily unavailable. Please try again later."
+        )
+        
     try:
         user = get_or_create_user(email)
         
@@ -348,13 +355,25 @@ def admin_dashboard(admin_key: str = None):
 
 @app.get("/ltd-deal", include_in_schema=False)
 def ltd_deal_page():
-    """$39 Lifetime Deal Landing Page - Matches Lovable Design"""
-    # SECURITY: Temporarily disabled until PayPal production is configured
-    if os.getenv("RENDER") and not os.getenv("PAYPAL_CLIENT_ID"):
+    """$39 Lifetime Deal Landing Page - TEMPORARILY DISABLED"""
+    # SECURITY: Completely disabled until PayPal is properly configured
+    if os.getenv("RENDER"):  # On production
         return HTMLResponse(
-            content="<h1>Coming Soon!</h1><p>Our Lifetime Deal will be available soon. Please check back later.</p>",
+            content="""
+            <!DOCTYPE html>
+            <html><head><title>Coming Soon - BOM2Pic</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+            </head><body>
+            <div class="container mt-5 text-center">
+                <h1 class="text-primary">🚀 Lifetime Deal Coming Soon!</h1>
+                <p class="lead">We're preparing an amazing $39 Lifetime Deal for you.</p>
+                <p>Please check back in a few days for the launch!</p>
+                <a href="/" class="btn btn-primary">Back to Homepage</a>
+            </div></body></html>
+            """,
             status_code=503
         )
+    # Local development only
     return FileResponse('app/static/ltd-deal.html')
 
 @app.get("/tool", include_in_schema=False)
