@@ -117,8 +117,14 @@ async def create_payment(
     try:
         user = get_or_create_user(email)
         
-        # LOCALHOST TEST MODE - Skip PayPal for development
-        if "localhost" in os.getenv("BASE_URL", "localhost"):
+        # LOCALHOST TEST MODE - Only allow bypass in development
+        is_development = (
+            "localhost" in os.getenv("BASE_URL", "") or 
+            os.getenv("NODE_ENV") == "development" or
+            not os.getenv("RENDER")  # Not on Render = development
+        )
+        
+        if is_development:
             # TEST MODE: Simulating payment for development
             
             # Create fake session ID for testing
@@ -168,8 +174,13 @@ async def payment_success(
 ):
     """Handle successful PayPal payment"""
     try:
-        # LOCALHOST TEST MODE - Skip PayPal verification
-        if "localhost" in str(request.base_url):
+        # LOCALHOST TEST MODE - Skip PayPal verification ONLY in development
+        is_development = (
+            "localhost" in str(request.base_url) or 
+            not os.getenv("RENDER")  # Not on Render = development
+        )
+        
+        if is_development:
             # TEST MODE: Simulating successful payment for development
             verification = {
                 "verified": True,
@@ -338,6 +349,12 @@ def admin_dashboard(admin_key: str = None):
 @app.get("/ltd-deal", include_in_schema=False)
 def ltd_deal_page():
     """$39 Lifetime Deal Landing Page - Matches Lovable Design"""
+    # SECURITY: Temporarily disabled until PayPal production is configured
+    if os.getenv("RENDER") and not os.getenv("PAYPAL_CLIENT_ID"):
+        return HTMLResponse(
+            content="<h1>Coming Soon!</h1><p>Our Lifetime Deal will be available soon. Please check back later.</p>",
+            status_code=503
+        )
     return FileResponse('app/static/ltd-deal.html')
 
 @app.get("/tool", include_in_schema=False)
