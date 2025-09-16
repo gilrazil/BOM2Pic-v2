@@ -22,6 +22,7 @@ from .payment import get_plans, create_payment_session, verify_payment, PaymentE
 from .excel_processor import process_excel_files
 from .security import PaymentRequest, SignupRequest, ProcessingRequest, validate_file_upload, sanitize_filename
 from .rate_limiter import check_payment_rate_limit, check_signup_rate_limit, check_processing_rate_limit
+from .admin_auth import admin_auth, require_admin_session, admin_login_required
 
 app = FastAPI(
     title="BOM2Pic",
@@ -340,16 +341,82 @@ async def payment_cancel(plan: str):
     """
     return HTMLResponse(content=html_content)
 
-@app.get("/admin", include_in_schema=False)
-def admin_dashboard(admin_key: str = None):
-    """Web-based admin dashboard for user management"""
-    ADMIN_KEY = os.getenv("ADMIN_KEY", "bom2pic_admin_2024")
+@app.get("/admin/login", include_in_schema=False)
+def admin_login_page():
+    """Secure admin login page"""
+    return HTMLResponse(content="""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Admin Login - BOM2Pic</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-light">
+        <div class="container">
+            <div class="row justify-content-center mt-5">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4 class="mb-0">🔒 Admin Login</h4>
+                        </div>
+                        <div class="card-body">
+                            <form action="/admin/auth" method="post">
+                                <div class="mb-3">
+                                    <label for="admin_key" class="form-label">Admin Key</label>
+                                    <input type="password" class="form-control" id="admin_key" name="admin_key" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">Login</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """)
+
+@app.post("/admin/auth", include_in_schema=False)
+def admin_authenticate(admin_key: str = Form(...)):
+    """Authenticate admin and create secure session"""
+    if not admin_auth.verify_admin_key(admin_key):
+        raise HTTPException(status_code=401, detail="Invalid admin key")
     
-    if admin_key != ADMIN_KEY:
-        raise HTTPException(
-            status_code=401, 
-            detail="Unauthorized: Admin access required. Use ?admin_key=YOUR_KEY"
-        )
+    # Create secure session
+    session_token = admin_auth.create_admin_session()
+    
+    # Redirect to dashboard with secure cookie
+    response = RedirectResponse(url="/admin", status_code=302)
+    response.set_cookie(
+        key="admin_session",
+        value=session_token,
+        httponly=True,
+        secure=True,  # HTTPS only
+        samesite="strict",
+        max_age=3600  # 1 hour
+    )
+    return response
+
+@app.get("/admin/logout", include_in_schema=False)
+def admin_logout(request: Request):
+    """Logout admin and invalidate session"""
+    session_token = request.cookies.get("admin_session")
+    if session_token:
+        admin_auth.invalidate_session(session_token)
+    
+    response = RedirectResponse(url="/admin/login", status_code=302)
+    response.delete_cookie("admin_session")
+    return response
+
+@app.get("/admin", include_in_schema=False)
+def admin_dashboard(request: Request):
+    """Secure admin dashboard with session authentication"""
+    # Check for valid admin session
+    redirect_response = admin_login_required(request)
+    if redirect_response:
+        return redirect_response
     
     from .auth import load_users
     users = load_users()
@@ -361,9 +428,12 @@ def admin_dashboard(admin_key: str = None):
         <title>BOM2Pic Admin Dashboard</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     </head>
-    <body>
+    <body class="bg-light">
         <div class="container py-4">
-            <h1>BOM2Pic Admin Dashboard</h1>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>🔒 BOM2Pic Admin Dashboard</h1>
+                <a href="/admin/logout" class="btn btn-outline-danger">Logout</a>
+            </div>
             <p class="text-muted">Total Users: {len(users)}</p>
             
             <table class="table table-striped">
