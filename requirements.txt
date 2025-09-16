@@ -5,9 +5,9 @@ python-multipart
 python-dotenv
 pydantic[email]
 
-# Security
-slowapi
-redis
+# Security (optional)
+# slowapi
+# redis
 
 # Excel processing
 openpyxl
