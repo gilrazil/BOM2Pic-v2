@@ -20,6 +20,8 @@ from fastapi.staticfiles import StaticFiles
 from .auth import get_or_create_user, check_user_access, update_subscription_status
 from .payment import get_plans, create_payment_session, verify_payment, PaymentError
 from .excel_processor import process_excel_files
+from .security import PaymentRequest, SignupRequest, ProcessingRequest, validate_file_upload, sanitize_filename
+from .rate_limiter import check_payment_rate_limit, check_signup_rate_limit, check_processing_rate_limit
 
 app = FastAPI(
     title="BOM2Pic",
@@ -63,7 +65,18 @@ def api_plans():
     return get_plans()
 
 @app.post("/api/auth/signup")
-async def signup(email: str = Form(...)):
+async def signup(email: str = Form(...), request: Request = None):
+    """Simple email-based signup with 30-day trial"""
+    # Rate limiting
+    check_signup_rate_limit(request)
+    
+    # Validate input
+    try:
+        signup_request = SignupRequest(email=email)
+        email = signup_request.email
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid email: {str(e)}")
+    
     try:
         user = get_or_create_user(email)
         return {"success": True, "message": "Account created successfully!", "user": user}
@@ -75,9 +88,29 @@ async def process_files(
     files: List[UploadFile] = File(...),
     email: str = Form(...),
     imageColumn: str = Form(...),
-    nameColumn: str = Form(...)
+    nameColumn: str = Form(...),
+    request: Request = None
 ):
-    """Process uploaded Excel files and extract images"""
+    """Process uploaded Excel files and extract images with validation"""
+    # Rate limiting
+    check_processing_rate_limit(request)
+    
+    # Validate inputs
+    try:
+        processing_request = ProcessingRequest(
+            email=email,
+            imageColumn=imageColumn,
+            nameColumn=nameColumn
+        )
+        email = processing_request.email
+        imageColumn = processing_request.imageColumn
+        nameColumn = processing_request.nameColumn
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid input: {str(e)}")
+    
+    # Validate files
+    validate_file_upload(files)
+    
     try:
         # Check user access
         user = get_or_create_user(email)
@@ -111,9 +144,23 @@ async def process_files(
 @app.post("/api/payment/create-session")
 async def create_payment(
     plan: str = Form(...),
-    email: str = Form(...)
+    email: str = Form(...),
+    request: Request = None
 ):
-    """Create PayPal payment session for LTD or other plans"""
+    """Create PayPal payment session with input validation"""
+    # Rate limiting
+    check_payment_rate_limit(request)
+    
+    # Validate inputs
+    try:
+        payment_request = PaymentRequest(plan=plan, email=email)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid input: {str(e)}")
+    
+    # Use validated data
+    plan = payment_request.plan
+    email = payment_request.email
+    
     try:
         user = get_or_create_user(email)
         

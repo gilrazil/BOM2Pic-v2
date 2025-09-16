@@ -3,6 +3,11 @@ fastapi
 uvicorn[standard]
 python-multipart
 python-dotenv
+pydantic[email]
+
+# Security
+slowapi
+redis
 
 # Excel processing
 openpyxl
