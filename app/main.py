@@ -381,8 +381,18 @@ def admin_login_page():
 @app.post("/admin/auth", include_in_schema=False)
 def admin_authenticate(admin_key: str = Form(...)):
     """Authenticate admin and create secure session"""
+    # Debug info (remove after fixing)
+    import hashlib
+    provided_hash = hashlib.sha256(admin_key.encode()).hexdigest()
+    expected_key = os.getenv("ADMIN_KEY", "bom2pic_admin_2024")
+    expected_hash = hashlib.sha256(expected_key.encode()).hexdigest()
+    
+    print(f"DEBUG - Provided key hash: {provided_hash[:16]}...")
+    print(f"DEBUG - Expected key: {expected_key}")
+    print(f"DEBUG - Expected hash: {expected_hash[:16]}...")
+    
     if not admin_auth.verify_admin_key(admin_key):
-        raise HTTPException(status_code=401, detail="Invalid admin key")
+        raise HTTPException(status_code=401, detail=f"Invalid admin key. Expected: {expected_key}")
     
     # Create secure session
     session_token = admin_auth.create_admin_session()
